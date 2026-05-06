@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "SkinMatch API",
+    "_postman_id": "8a8d4f7d-skin-match-mvp",
+    "description": "REST API for the SkinMatch MVP — AI-driven skincare recommendations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "analysisId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Auth — login (mock)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@skinmatch.local\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Analysis — upload",
+      "request": {
+        "method": "POST",
+        "url": { "raw": "{{baseUrl}}/analysis/upload", "host": ["{{baseUrl}}"], "path": ["analysis", "upload"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "file", "type": "file" }]
+        }
+      }
+    },
+    {
+      "name": "Quiz — submit",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/quiz/submit", "host": ["{{baseUrl}}"], "path": ["quiz", "submit"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"analysis_id\": {{analysisId}},\n  \"self_reported_skin_type\": \"combination\",\n  \"concerns\": [\"hydration\", \"pores\"],\n  \"sensitivity\": false,\n  \"age_range\": \"25-34\",\n  \"budget\": \"medium\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Recommendations — get",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/recommendations/{{analysisId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["recommendations", "{{analysisId}}"]
+        }
+      }
+    },
+    {
+      "name": "Plan — get",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/plan/{{analysisId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["plan", "{{analysisId}}"]
+        }
+      }
+    },
+    {
+      "name": "Products — list",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/products", "host": ["{{baseUrl}}"], "path": ["products"] }
+      }
+    },
+    {
+      "name": "Products — create",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/products", "host": ["{{baseUrl}}"], "path": ["products"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"brand\": \"Demo\",\n  \"name\": \"Sample Cream\",\n  \"category\": \"moisturizer\",\n  \"skin_types\": [\"dry\", \"normal\"],\n  \"concerns\": [\"hydration\"],\n  \"ingredients\": [\"glycerin\"],\n  \"price\": 12.5\n}"
+        }
+      }
+    }
+  ]
+}
