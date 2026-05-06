@@ -141,3 +141,34 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# SkinMatch
+backend/uploads/
+backend/.env
+frontend/.env
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE / tooling
+.idea/
+.vscode/
+.claude/
+.DS_Store
