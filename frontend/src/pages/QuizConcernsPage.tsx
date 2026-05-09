@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import PillButton from "../components/PillButton";
@@ -5,18 +6,27 @@ import QuizHeader from "../components/QuizHeader";
 import { useFlow } from "../state/flow";
 import type { Concern } from "../types";
 
+// The labels here match the backend's Concern enum 1:1 so the user's
+// selection is forwarded verbatim to /quiz/submit and the recommendation
+// engine can apply the matching scoring rules.
 const OPTIONS: { value: Concern; title: string; bg: string; icon: string }[] = [
-  { value: "oiliness", title: "Acne", bg: "var(--mint)", icon: "🧴" },
+  { value: "oiliness", title: "Oiliness", bg: "var(--mint)", icon: "🧴" },
   { value: "redness", title: "Redness", bg: "var(--rose)", icon: "🌹" },
-  { value: "pigmentation", title: "Pigments", bg: "var(--cream)", icon: "🎨" },
-  { value: "hydration", title: "Wrinkles", bg: "var(--lavender)", icon: "🪻" },
+  { value: "pigmentation", title: "Pigmentation", bg: "var(--cream)", icon: "🎨" },
+  { value: "hydration", title: "Hydration", bg: "var(--lavender)", icon: "💧" },
   { value: "sensitivity", title: "Sensitivity", bg: "var(--sky)", icon: "💎" },
   { value: "pores", title: "Pores", bg: "white", icon: "🔍" },
 ];
 
 export default function QuizConcernsPage() {
   const navigate = useNavigate();
-  const { concerns, toggleConcern } = useFlow();
+  const { concerns, toggleConcern, imageFile, skinType } = useFlow();
+
+  // Guard: if the user opens this URL without finishing the prior steps.
+  useEffect(() => {
+    if (!imageFile) navigate("/capture", { replace: true });
+    else if (!skinType) navigate("/quiz/skin-type", { replace: true });
+  }, [imageFile, skinType, navigate]);
 
   return (
     <div className="screen relative">

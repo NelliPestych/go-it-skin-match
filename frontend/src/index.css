@@ -1229,6 +1229,32 @@ select {
   min-height: 30px;
 }
 
+.product-card ul.reasons {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-card ul.reasons li {
+  font-size: 10.5px;
+  color: var(--text-60);
+  line-height: 14px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.product-card ul.reasons li::before {
+  content: "·";
+  position: absolute;
+  left: 2px;
+  top: -1px;
+  font-weight: 700;
+  color: var(--peach);
+}
+
 .product-card .footer {
   display: flex;
   justify-content: space-between;

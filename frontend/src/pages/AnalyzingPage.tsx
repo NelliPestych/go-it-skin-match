@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
+import PillButton from "../components/PillButton";
 import { api } from "../services/api";
 import { useFlow } from "../state/flow";
 
@@ -19,17 +20,26 @@ export default function AnalyzingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!imageFile || !skinType) {
-      navigate("/capture");
+    // Guard: missing prerequisites means the user navigated here
+    // directly. Send them back to the right step.
+    if (!imageFile) {
+      navigate("/capture", { replace: true });
+      return;
+    }
+    if (!skinType) {
+      navigate("/quiz/skin-type", { replace: true });
       return;
     }
 
     let cancelled = false;
     const stepTimers: number[] = [];
 
-    // animate the checklist
     STEPS.forEach((_, idx) => {
-      stepTimers.push(window.setTimeout(() => !cancelled && setCurrentStep(idx + 1), (idx + 1) * 800));
+      stepTimers.push(
+        window.setTimeout(() => {
+          if (!cancelled) setCurrentStep(idx + 1);
+        }, (idx + 1) * 800),
+      );
     });
 
     (async () => {
@@ -43,7 +53,7 @@ export default function AnalyzingPage() {
         });
         // ensure the loader plays at least 2.5s for UX
         await new Promise((r) => setTimeout(r, 2400));
-        if (!cancelled) navigate(`/results/${upload.analysis_id}`);
+        if (!cancelled) navigate(`/results/${upload.analysis_id}`, { replace: true });
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Analysis failed");
       }
@@ -74,35 +84,63 @@ export default function AnalyzingPage() {
         </IconButton>
       </div>
 
-      <div className="relative" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 32px" }}>
-        <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>
-          Analyzing your skin...
-        </h1>
-        <p className="body" style={{ textAlign: "center", maxWidth: 260, marginBottom: 16 }}>
-          Our AI is processing your profile to build your personalized dermatological routine.
-        </p>
+      <div
+        className="relative"
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "16px 32px",
+        }}
+      >
+        {error ? (
+          <>
+            <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>
+              Analysis failed
+            </h1>
+            <div className="error" style={{ width: "100%", margin: "0 0 16px" }}>
+              {error}
+            </div>
+            <PillButton onClick={() => navigate("/capture")}>Try again</PillButton>
+            <div style={{ height: 12 }} />
+            <PillButton variant="secondary" onClick={() => navigate("/")}>
+              Back home
+            </PillButton>
+          </>
+        ) : (
+          <>
+            <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>
+              Analyzing your skin...
+            </h1>
+            <p className="body" style={{ textAlign: "center", maxWidth: 260, marginBottom: 16 }}>
+              Our AI is processing your profile to build your personalized dermatological routine.
+            </p>
 
-        <div className="checklist" style={{ width: "100%", maxWidth: 280 }}>
-          {STEPS.map((step, idx) => {
-            let state: "done" | "pending" | "todo" = "todo";
-            if (idx < currentStep - 1) state = "done";
-            else if (idx === currentStep - 1) state = "pending";
-            return (
-              <div className="item" key={step}>
-                <div className={"check " + state}>{state === "done" ? "✓" : ""}</div>
-                <span style={{ opacity: state === "todo" ? 0.5 : 1 }}>{step}{state === "pending" ? "..." : ""}</span>
-              </div>
-            );
-          })}
-        </div>
+            <div className="checklist" style={{ width: "100%", maxWidth: 280 }}>
+              {STEPS.map((step, idx) => {
+                let state: "done" | "pending" | "todo" = "todo";
+                if (idx < currentStep - 1) state = "done";
+                else if (idx === currentStep - 1) state = "pending";
+                return (
+                  <div className="item" key={step}>
+                    <div className={"check " + state}>{state === "done" ? "✓" : ""}</div>
+                    <span style={{ opacity: state === "todo" ? 0.5 : 1 }}>
+                      {step}
+                      {state === "pending" ? "..." : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
-        <div className="analyzing-orbit" style={{ marginTop: 32 }}>
-          <span style={{ fontSize: 56 }}>👤</span>
-          <div className="analyzing-scan-line" />
-        </div>
+            <div className="analyzing-orbit" style={{ marginTop: 32 }}>
+              <span style={{ fontSize: 56 }}>👤</span>
+              <div className="analyzing-scan-line" />
+            </div>
+          </>
+        )}
       </div>
-
-      {error && <div className="error">{error}</div>}
 
       <div className="screen-footer relative" style={{ paddingBottom: 24, background: "transparent" }}>
         <div className="helper" style={{ display: "flex", justifyContent: "center", gap: 6 }}>

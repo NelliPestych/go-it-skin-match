@@ -4,6 +4,7 @@ import type {
   Product,
   QuizPayload,
   RecommendationResponse,
+  SkinFeatures,
 } from "../types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -47,6 +48,9 @@ export const api = {
         body: JSON.stringify(payload),
       }),
     ),
+
+  features: async (analysisId: number): Promise<SkinFeatures> =>
+    handle<SkinFeatures>(await fetch(`${BASE_URL}/analysis/${analysisId}`)),
 
   recommendations: async (analysisId: number): Promise<RecommendationResponse> =>
     handle<RecommendationResponse>(

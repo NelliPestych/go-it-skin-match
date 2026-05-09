@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import PillButton from "../components/PillButton";
@@ -23,12 +24,14 @@ export default function QuizSkinTypePage() {
   const navigate = useNavigate();
   const { skinType, setSkinType, imageFile } = useFlow();
 
+  // Guard: if the user opens this URL without uploading first, send
+  // them back to capture.
+  useEffect(() => {
+    if (!imageFile) navigate("/capture", { replace: true });
+  }, [imageFile, navigate]);
+
   const onContinue = () => {
     if (!skinType) return;
-    if (!imageFile) {
-      navigate("/capture");
-      return;
-    }
     navigate("/quiz/concerns");
   };
 

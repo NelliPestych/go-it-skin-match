@@ -5,11 +5,15 @@ import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { useFlow } from "../state/flow";
 
+const MAX_UPLOAD_MB = 10;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export default function CapturePage() {
   const navigate = useNavigate();
   const { imageFile, setImageFile } = useFlow();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!imageFile) {
@@ -24,8 +28,20 @@ export default function CapturePage() {
   const onPick = () => fileRef.current?.click();
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     const f = e.target.files?.[0];
-    if (f) setImageFile(f);
+    if (!f) return;
+    if (!ALLOWED_TYPES.includes(f.type)) {
+      setError(`Unsupported file type: ${f.type || "unknown"}. Use JPG, PNG or WEBP.`);
+      e.target.value = "";
+      return;
+    }
+    if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — please pick one under ${MAX_UPLOAD_MB} MB.`);
+      e.target.value = "";
+      return;
+    }
+    setImageFile(f);
   };
 
   return (
@@ -78,6 +94,16 @@ export default function CapturePage() {
         <h2>Capture Your Glow</h2>
         <p>Ensure good natural lighting and position your face within the frame for the best AI analysis.</p>
       </div>
+
+      {error && (
+        <div
+          className="capture-tip"
+          style={{ background: "#fff0f0", color: "#b00020", marginBottom: 8 }}
+        >
+          <div className="dot" style={{ background: "#b00020", color: "#fff0f0" }}>!</div>
+          <div>{error}</div>
+        </div>
+      )}
 
       <div className="capture-tip">
         <div className="dot">💡</div>
