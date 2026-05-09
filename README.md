@@ -101,23 +101,32 @@ This makes it simple to:
 docker compose up --build
 ```
 
-Then:
-- Frontend → http://localhost:8080
-- Backend  → http://localhost:8000
-- Swagger  → http://localhost:8000/docs
+Then open in a browser:
+- **Frontend (UI)** → http://localhost:8080
+- **Backend (API)** → http://localhost:8000
+- **Swagger UI** → http://localhost:8000/docs
 
-### Option B — Run services manually
+Healthcheck:
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","database":"up","redis":"up"}
+```
 
-**Backend**
+### Option B — Run services manually (no Docker)
+
+**Backend** (uses SQLite by default if `DATABASE_URL` is overridden):
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # adjust if running PG/Redis on non-default hosts
+cp .env.example .env
+# For a no-Postgres local run, set in backend/.env:
+#   DATABASE_URL=sqlite:///./skinmatch.db
+#   REDIS_URL=redis://localhost:6390/0   # unreachable on purpose; cache degrades gracefully
 uvicorn app.main:app --reload
 ```
 
-**Frontend**
+**Frontend**:
 ```bash
 cd frontend
 cp .env.example .env
@@ -127,6 +136,97 @@ npm run dev
 
 The backend will create tables and seed the product catalogue
 automatically on first start.
+
+---
+
+## 🎬 Week 2 demo flow
+
+Recommended live walkthrough — **5 minutes end-to-end**:
+
+1. **Start the stack**
+   ```bash
+   docker compose up --build
+   ```
+   Wait for `postgres` and `redis` healthchecks to pass and the
+   `backend` log line `Application startup complete.`.
+
+2. **Verify all services are up**
+   ```bash
+   curl -s http://localhost:8000/health
+   # → {"status":"ok","database":"up","redis":"up"}
+   curl -s http://localhost:8000/products | jq 'length'
+   # → 13   (seeded catalogue)
+   ```
+
+3. **Open the UI** → http://localhost:8080
+
+4. **Click "Start Analysis"** → uploads a face photo
+   (any clear, frontal portrait JPG/PNG/WEBP, ≤ 10 MB).
+   The frontend validates type and size client-side before sending.
+
+5. **Quiz Step 1 of 3** — pick one skin type (Dry / Oily /
+   Combination / Normal). Continue is enabled only when a choice
+   is made.
+
+6. **Quiz Step 2 of 3** — pick one or more concerns. Labels match
+   the backend `Concern` enum 1:1, so they flow through unchanged
+   to the recommendation engine.
+
+7. **Analyzing screen** — the bullets animate while the app calls
+   `POST /analysis/upload` and `POST /quiz/submit` in sequence.
+   On error you see "Try again" / "Back home" buttons instead of
+   getting stuck.
+
+8. **Results screen** displays:
+   - **Skin analysis** chips (e.g. "Mild Redness", "Hydrated") and
+     a hydration meter, derived from real `SkinFeatures` returned
+     by `GET /analysis/{id}`.
+   - **Recommended products** carousel — each card shows the
+     product, its category and brand, and **the actual scoring
+     reasons** returned by `GET /recommendations/{id}` (e.g.
+     "Calms redness", "Within budget").
+   - **Daily Beauty Plan** — morning + evening routines from
+     `GET /plan/{id}`.
+
+9. **Talking points for the mentor**
+   - The AI module today is heuristic (OpenCV) but lives behind a
+     `SkinAnalyzer` interface; swapping in a CNN is a one-file change.
+   - Recommendation reasons are persisted with each recommendation
+     so the UI can explain *why*.
+   - Redis is a derived-data cache; the API stays functional if it
+     goes down (graceful degradation).
+   - Auth is mocked but shaped like a real JWT flow.
+
+If something breaks during the demo, see the **Troubleshooting**
+section below.
+
+### Smoke test (no UI)
+```bash
+# 1) upload
+ANALYSIS=$(curl -s -F "file=@./design/01-intro.png;type=image/png" \
+  http://localhost:8000/analysis/upload | jq -r '.analysis_id')
+
+# 2) quiz
+curl -s -X POST http://localhost:8000/quiz/submit \
+  -H 'Content-Type: application/json' \
+  -d "{\"analysis_id\":$ANALYSIS,\"self_reported_skin_type\":\"combination\",\"concerns\":[\"hydration\",\"pores\"],\"sensitivity\":false,\"budget\":\"medium\"}"
+
+# 3) recommendations
+curl -s http://localhost:8000/recommendations/$ANALYSIS | jq '.items | length'
+
+# 4) plan
+curl -s http://localhost:8000/plan/$ANALYSIS | jq '.summary'
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `docker compose up` hangs on Postgres | first boot can take ~15 s; healthcheck waits |
+| `connection refused` to Redis from backend | `redis` container not yet up — backend retries; the cache also degrades gracefully |
+| Frontend says "Failed to fetch" | check that `BACKEND_CORS_ORIGINS` in compose includes the URL you opened in the browser |
+| `/analysis/upload` returns 415 | the file isn't JPG/PNG/WEBP — UI now validates this before the call |
+| `/analysis/upload` returns 422 | image is smaller than 64×64 px — pick a bigger photo |
 
 ---
 
