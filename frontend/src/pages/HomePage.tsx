@@ -1,42 +1,98 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+import IconButton from "../components/IconButton";
+import PillButton from "../components/PillButton";
 
 export default function HomePage() {
+  const navigate = useNavigate();
   return (
-    <section className="hero">
-      <h2>Personalized skincare, powered by computer vision.</h2>
-      <p>
-        Upload a photo, take a 30-second quiz, and SkinMatch builds a
-        product list and a daily beauty plan tailored to your skin —
-        with explanations for every recommendation.
-      </p>
-      <Link to="/analyze">
-        <button>Start free analysis</button>
-      </Link>
+    <div className="screen">
+      <div className="app-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 9999,
+              background: "var(--rose)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+            }}
+          >
+            ✦
+          </span>
+          <span className="font-serif" style={{ fontWeight: 700, fontSize: 20, letterSpacing: -0.5 }}>
+            SkinMatch
+          </span>
+        </div>
+        <IconButton aria-label="Menu">
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+            <path d="M1 1h12M1 5h12M1 9h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </IconButton>
+      </div>
 
-      <div className="grid cols-2" style={{ marginTop: 40 }}>
-        <div className="card">
-          <h3 className="section-title">1. Upload</h3>
-          <p>Send a clear, front-facing photo of your skin.</p>
+      <div className="intro-hero">
+        <div className="intro-hero-emoji">✨</div>
+      </div>
+
+      <div className="intro-section">
+        <span className="badge-pill" style={{ marginBottom: 12 }}>
+          AI Skin Intelligence
+        </span>
+        <h1 className="h-display" style={{ fontSize: 40, lineHeight: "48px", marginBottom: 12 }}>
+          Welcome to
+          <br />
+          SkinMatch
+        </h1>
+        <p className="body" style={{ maxWidth: 280, margin: "0 auto 8px" }}>
+          Take a photo and complete a quick quiz to get personalized skincare recommendations.
+        </p>
+      </div>
+
+      <div className="screen-pad" style={{ marginTop: 12 }}>
+        <div className="intro-feature">
+          <div className="tile rose">⚡</div>
+          <div>
+            <h3>Instant Analysis</h3>
+            <p>AI-powered facial scanning for deeper skin insights.</p>
+          </div>
         </div>
-        <div className="card">
-          <h3 className="section-title">2. Analyze</h3>
-          <p>
-            Our AI module extracts skin type, redness, hydration,
-            pigmentation, and pore signals.
-          </p>
-        </div>
-        <div className="card">
-          <h3 className="section-title">3. Match</h3>
-          <p>
-            A rule-based engine scores products against your features
-            and quiz answers.
-          </p>
-        </div>
-        <div className="card">
-          <h3 className="section-title">4. Routine</h3>
-          <p>Get a morning + evening plan and weekly tips.</p>
+        <div className="intro-feature">
+          <div className="tile mint">🧪</div>
+          <div>
+            <h3>Science Backed</h3>
+            <p>Dermatologist approved routines for every skin type.</p>
+          </div>
         </div>
       </div>
-    </section>
+
+      <div className="intro-step-card">
+        <div className="step-row">
+          <div>
+            <div className="step-num">Step 01</div>
+            <div className="step-title">The Skin Quiz</div>
+          </div>
+          <div className="intro-step-arrow">→</div>
+        </div>
+        <div className="intro-step-segments">
+          <div className="seg fill" style={{ flex: 0.4 }} />
+          <div className="seg" />
+          <div className="seg" />
+        </div>
+        <div className="caption" style={{ color: "var(--text-60)" }}>
+          3 minutes to your perfect routine.
+        </div>
+      </div>
+
+      <div style={{ flex: 1 }} />
+
+      <div className="screen-footer">
+        <PillButton onClick={() => navigate("/capture")}>Start Analysis</PillButton>
+        <div className="helper">By continuing, you agree to our Terms of Service</div>
+      </div>
+    </div>
   );
 }

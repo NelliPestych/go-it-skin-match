@@ -1,19 +1,27 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
-import Header from "./components/Header";
 import HomePage from "./pages/HomePage";
-import AnalysisPage from "./pages/AnalysisPage";
+import CapturePage from "./pages/CapturePage";
+import QuizSkinTypePage from "./pages/QuizSkinTypePage";
+import QuizConcernsPage from "./pages/QuizConcernsPage";
+import AnalyzingPage from "./pages/AnalyzingPage";
 import ResultsPage from "./pages/ResultsPage";
+import { FlowProvider } from "./state/flow";
 
 export default function App() {
   return (
-    <div className="app">
-      <Header />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/analyze" element={<AnalysisPage />} />
-        <Route path="/results/:analysisId" element={<ResultsPage />} />
-      </Routes>
-    </div>
+    <FlowProvider>
+      <div className="mobile-frame">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/capture" element={<CapturePage />} />
+          <Route path="/quiz/skin-type" element={<QuizSkinTypePage />} />
+          <Route path="/quiz/concerns" element={<QuizConcernsPage />} />
+          <Route path="/analyzing" element={<AnalyzingPage />} />
+          <Route path="/results/:analysisId" element={<ResultsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </FlowProvider>
   );
 }
