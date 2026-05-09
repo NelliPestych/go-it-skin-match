@@ -50,6 +50,11 @@ def db_engine():
 def db_session(db_engine) -> Generator:
     TestingSession = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
     db = TestingSession()
+    # seed product catalogue so unit tests against the engine
+    # have a non-empty catalogue to score against.
+    from app.db.seed import seed_products
+
+    seed_products(db)
     try:
         yield db
     finally:
