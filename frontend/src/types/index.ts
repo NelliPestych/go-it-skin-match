@@ -73,3 +73,20 @@ export interface BeautyPlan {
   weekly_tips: { day: string; tip: string }[];
   lifestyle_tips: string[];
 }
+
+export interface AnalysisHistoryItem {
+  analysis_id: number;
+  created_at: string;
+  skin_type: SkinType | string;
+  confidence_score: number;
+  top_products: string[];
+}
+
+export interface AnalysisDetails {
+  analysis_id: number;
+  created_at: string;
+  features: SkinFeatures;
+  quiz_answers?: Record<string, unknown> | null;
+  recommendations: RecommendationItem[];
+  plan?: BeautyPlan | null;
+}

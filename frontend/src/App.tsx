@@ -6,6 +6,7 @@ import QuizSkinTypePage from "./pages/QuizSkinTypePage";
 import QuizConcernsPage from "./pages/QuizConcernsPage";
 import AnalyzingPage from "./pages/AnalyzingPage";
 import ResultsPage from "./pages/ResultsPage";
+import HistoryPage from "./pages/HistoryPage";
 import { FlowProvider } from "./state/flow";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/quiz/concerns" element={<QuizConcernsPage />} />
           <Route path="/analyzing" element={<AnalyzingPage />} />
           <Route path="/results/:analysisId" element={<ResultsPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

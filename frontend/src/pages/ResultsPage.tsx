@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { api } from "../services/api";
-import type { BeautyPlan, RecommendationResponse, SkinFeatures } from "../types";
+import type { BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
 
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
@@ -40,7 +40,7 @@ export default function ResultsPage() {
   const navigate = useNavigate();
   const { analysisId } = useParams();
   const id = Number(analysisId);
-  const [recos, setRecos] = useState<RecommendationResponse | null>(null);
+  const [recos, setRecos] = useState<RecommendationItem[] | null>(null);
   const [plan, setPlan] = useState<BeautyPlan | null>(null);
   const [features, setFeatures] = useState<SkinFeatures | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,15 +50,14 @@ export default function ResultsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [f, r, p] = await Promise.all([
-          api.features(id),
-          api.recommendations(id),
-          api.plan(id),
-        ]);
+        // Single round-trip: details endpoint returns features + recos +
+        // plan in one shape, and works for both fresh analyses (where
+        // /quiz/submit eagerly persists everything) and historical ones.
+        const d = await api.details(id);
         if (cancelled) return;
-        setFeatures(f);
-        setRecos(r);
-        setPlan(p);
+        setFeatures(d.features);
+        setRecos(d.recommendations);
+        setPlan(d.plan ?? null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
       }
@@ -84,7 +83,7 @@ export default function ResultsPage() {
     );
   }
 
-  if (!recos || !plan || !features) {
+  if (!features || recos === null) {
     return (
       <div className="screen" style={{ background: "var(--bg-results)" }}>
         <div className="screen-pad" style={{ paddingTop: 24 }}>
@@ -118,8 +117,8 @@ export default function ResultsPage() {
           <span className="eyebrow">Analysis Complete</span>
           <div className="divider" style={{ background: "var(--peach)" }} />
         </div>
-        <IconButton aria-label="Share">
-          <span style={{ fontSize: 14 }}>↗</span>
+        <IconButton onClick={() => navigate("/history")} aria-label="My results">
+          <span style={{ fontSize: 14 }}>≡</span>
         </IconButton>
       </div>
 
@@ -162,11 +161,11 @@ export default function ResultsPage() {
           </div>
           <span className="see-all">See All</span>
         </div>
-        {recos.items.length === 0 ? (
+        {recos.length === 0 ? (
           <p className="muted">No products matched your profile yet — try adjusting your concerns.</p>
         ) : (
           <div className="product-row">
-            {recos.items.map((item, idx) => (
+            {recos.map((item, idx) => (
               <div className="product-card" key={item.product.id}>
                 <div className="image" style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}>
                   <span>{PRODUCT_EMOJI[item.product.category] ?? "🧴"}</span>
@@ -194,47 +193,49 @@ export default function ResultsPage() {
         )}
       </section>
 
-      <section className="section relative">
-        <h2 className="h2" style={{ marginBottom: 16 }}>
-          Daily Beauty Plan
-        </h2>
+      {plan && (
+        <section className="section relative">
+          <h2 className="h2" style={{ marginBottom: 16 }}>
+            Daily Beauty Plan
+          </h2>
 
-        <div className="routine-card">
-          <div className="routine-head">
-            <div className="icon">☀️</div>
-            <h4>Morning Routine</h4>
+          <div className="routine-card">
+            <div className="routine-head">
+              <div className="icon">☀️</div>
+              <h4>Morning Routine</h4>
+            </div>
+            <ul className="routine-list">
+              {plan.daily.morning.slice(0, 5).map((step) => (
+                <li key={`m-${step.order}`}>
+                  <span className="step-num">Step {step.order}</span>
+                  <div className="step-body">
+                    <h5>{step.product_name}</h5>
+                    <p>{step.instruction}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="routine-list">
-            {plan.daily.morning.slice(0, 5).map((step) => (
-              <li key={`m-${step.order}`}>
-                <span className="step-num">Step {step.order}</span>
-                <div className="step-body">
-                  <h5>{step.product_name}</h5>
-                  <p>{step.instruction}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
 
-        <div className="routine-card evening">
-          <div className="routine-head">
-            <div className="icon">🌙</div>
-            <h4>Evening Routine</h4>
+          <div className="routine-card evening">
+            <div className="routine-head">
+              <div className="icon">🌙</div>
+              <h4>Evening Routine</h4>
+            </div>
+            <ul className="routine-list">
+              {plan.daily.evening.slice(0, 5).map((step) => (
+                <li key={`e-${step.order}`}>
+                  <span className="step-num">Step {step.order}</span>
+                  <div className="step-body">
+                    <h5>{step.product_name}</h5>
+                    <p>{step.instruction}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="routine-list">
-            {plan.daily.evening.slice(0, 5).map((step) => (
-              <li key={`e-${step.order}`}>
-                <span className="step-num">Step {step.order}</span>
-                <div className="step-body">
-                  <h5>{step.product_name}</h5>
-                  <p>{step.instruction}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="screen-footer relative" style={{ background: "var(--bg-results)" }}>
         <PillButton trailingIcon={<span>→</span>}>Shop My Selection</PillButton>

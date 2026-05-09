@@ -91,6 +91,13 @@ export default function HomePage() {
 
       <div className="screen-footer">
         <PillButton onClick={() => navigate("/capture")}>Start Analysis</PillButton>
+        <button
+          onClick={() => navigate("/history")}
+          className="text-link"
+          style={{ display: "block", margin: "12px auto 0" }}
+        >
+          View my results →
+        </button>
         <div className="helper">By continuing, you agree to our Terms of Service</div>
       </div>
     </div>

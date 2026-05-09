@@ -1407,3 +1407,98 @@ select {
 .uploader-inline:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* =========================================================
+   History list
+   ========================================================= */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+
+.history-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  color: var(--text);
+}
+
+.history-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.history-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.history-card-products {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-card-products li {
+  font-size: 12px;
+  color: var(--text-60);
+  padding-left: 14px;
+  position: relative;
+}
+
+.history-card-products li::before {
+  content: "·";
+  position: absolute;
+  left: 4px;
+  top: -1px;
+  color: var(--peach);
+  font-weight: 700;
+}
+
+.history-card-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--text-10);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--peach);
+  text-transform: uppercase;
+}
+
+.text-link {
+  background: transparent;
+  border: 0;
+  color: var(--text-60);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+.text-link:hover {
+  color: var(--text);
+}
+
+.card-empty {
+  background: var(--surface);
+  border: 1px dashed var(--text-10);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  text-align: center;
+}

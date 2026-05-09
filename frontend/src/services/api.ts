@@ -1,4 +1,6 @@
 import type {
+  AnalysisDetails,
+  AnalysisHistoryItem,
   AnalysisResponse,
   BeautyPlan,
   Product,
@@ -51,6 +53,12 @@ export const api = {
 
   features: async (analysisId: number): Promise<SkinFeatures> =>
     handle<SkinFeatures>(await fetch(`${BASE_URL}/analysis/${analysisId}`)),
+
+  history: async (): Promise<AnalysisHistoryItem[]> =>
+    handle<AnalysisHistoryItem[]>(await fetch(`${BASE_URL}/analysis/history`)),
+
+  details: async (analysisId: number): Promise<AnalysisDetails> =>
+    handle<AnalysisDetails>(await fetch(`${BASE_URL}/analysis/${analysisId}/details`)),
 
   recommendations: async (analysisId: number): Promise<RecommendationResponse> =>
     handle<RecommendationResponse>(
