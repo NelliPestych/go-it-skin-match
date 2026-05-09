@@ -172,3 +172,6 @@ frontend/.env
 .vscode/
 .claude/
 .DS_Store
+
+# Design references (Figma exports — kept locally, not shipped)
+design/
