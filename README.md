@@ -237,8 +237,10 @@ curl -s http://localhost:8000/plan/$ANALYSIS | jq '.summary'
 | GET    | `/health`                           | Service health (database + Redis)                    |
 | POST   | `/auth/login`                       | Mock login — returns a bearer token for an email     |
 | POST   | `/analysis/upload`                  | Upload an image, run AI analysis, persist scan       |
+| GET    | `/analysis/history`                 | List previous analyses (newest first) for the user   |
 | GET    | `/analysis/{analysis_id}`           | Fetch raw skin features for an analysis              |
-| POST   | `/quiz/submit`                      | Submit quiz answers tied to an analysis              |
+| GET    | `/analysis/{analysis_id}/details`   | Full snapshot — features + quiz + recos + plan       |
+| POST   | `/quiz/submit`                      | Submit quiz answers (eagerly persists recos + plan)  |
 | GET    | `/recommendations/{analysis_id}`    | Get ranked product recommendations + reasons         |
 | GET    | `/plan/{analysis_id}`               | Get morning/evening routine + weekly + lifestyle tips|
 | GET    | `/products`                         | List the product catalogue (optional `?category=`)   |
@@ -252,16 +254,31 @@ A ready-to-import Postman collection lives in
 
 ## 🧠 AI module — current state
 
-The current analyzer in
+The analyzer in
 [`backend/app/ai/heuristic_analyzer.py`](backend/app/ai/heuristic_analyzer.py)
-is **deliberately heuristic, not learned**:
+is **deliberately heuristic, not a trained model**. For the MVP it
+extracts five named OpenCV/NumPy signals from the face region and maps
+them to the six output features:
 
-- Haar-cascade face detection narrows the analysis to the face region.
-- Color-space transforms (BGR → HSV/LAB) and morphological operators
-  produce per-feature signals (redness, hydration proxy, pigmentation
-  proxy, pores).
-- A confidence score is derived from image sharpness (Laplacian
-  variance) and face-detection success.
+```
+brightness   = mean(V channel of HSV)
+redness      = mean(R - 0.5 * (G + B))            normalised 0..1
+contrast     = std(grayscale)                      normalised 0..1
+saturation   = mean(S channel of HSV)              normalised 0..1
+sharpness    = var(Laplacian of grayscale)         normalised 0..1
+```
+
+Mapping rules:
+
+- `skin_type` — `oily` if bright + smooth; `dry` if dim + textured;
+  `combination` if mid-bright + moderately saturated; otherwise
+  `normal`.
+- `redness_level`, `pigmentation_level` — bucketed from the redness
+  and contrast signals.
+- `hydration_level` — bucketed from `1 - contrast` (smoother = more
+  hydrated, in this proxy).
+- `pores_score` — contrast, dampened on dim images.
+- `confidence_score` — `0.6 * sharpness + 0.4 * face_found`.
 
 This is intentional: the project is an **engineering MVP**, not a
 machine-learning thesis. The architecture (single
@@ -269,6 +286,53 @@ machine-learning thesis. The architecture (single
 the heuristic implementation can be replaced by a trained CNN
 (MobileNet, EfficientNet, or a fine-tuned transformer) without
 touching the service or API layers.
+
+---
+
+## 🗂 History flow
+
+Every analysis is fully persisted in PostgreSQL across four tables:
+
+| Table             | When written                                  |
+|-------------------|-----------------------------------------------|
+| `skin_scans`      | `POST /analysis/upload`                       |
+| `quiz_answers`    | `POST /quiz/submit`                           |
+| `recommendations` | eagerly during `POST /quiz/submit`            |
+| `routine_plans`   | eagerly during `POST /quiz/submit`            |
+
+The eager persistence path means that by the time `/quiz/submit`
+returns, the full snapshot (features + quiz + recos + plan) is
+durable. `GET /analysis/history` therefore always shows top-product
+names for completed flows.
+
+The frontend exposes this via:
+
+- A **"View my results"** link on the home screen.
+- A **history icon** in the results header.
+- The **`/history`** route — a list of previous analyses with date,
+  detected skin type, AI confidence and the top three recommended
+  product names.
+- Tapping a card opens **`/results/:id`** which reuses the same
+  `ResultsPage` UI but loads from `GET /analysis/{id}/details` (a
+  single round-trip).
+
+### Demo: view previous results
+
+1. Run at least one full analysis (upload → quiz → results).
+2. From the home screen tap **"View my results"** (or the ≡ icon
+   in the results header).
+3. The history page shows your most recent analysis card with date,
+   skin type, AI confidence and top-3 product names.
+4. Tap the card → opens the same results screen for that historical
+   analysis. Run a second analysis and the new card appears at the
+   top.
+
+Smoke-test the same path with curl:
+```bash
+# After running the full flow at least once
+curl -s http://localhost:8000/analysis/history | jq
+curl -s http://localhost:8000/analysis/1/details | jq '.features, .recommendations | length'
+```
 
 ---
 
