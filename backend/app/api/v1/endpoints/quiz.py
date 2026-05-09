@@ -7,7 +7,9 @@ from app.models.user import User
 from app.repositories.scan_repo import SkinScanRepository
 from app.schemas.quiz import QuizRead, QuizSubmission
 from app.services.cache_service import CacheService
+from app.services.plan_service import PlanService
 from app.services.quiz_service import QuizService
+from app.services.recommendation_service import RecommendationService
 
 router = APIRouter()
 
@@ -32,4 +34,23 @@ def submit_quiz(
     record = QuizService(db).submit(user.id, payload)
     cache.invalidate(f"reco:{payload.analysis_id}")
     cache.invalidate(f"plan:{payload.analysis_id}")
+
+    # Eagerly persist recommendations and routine plan so the full
+    # flow (SkinScan → Quiz → Recommendation → RoutinePlan) is durably
+    # snapshotted in the DB. This makes the history endpoint
+    # consistent regardless of whether the client ever fetches them.
+    reco_service = RecommendationService(db)
+    scored = reco_service.generate(
+        user_id=user.id,
+        analysis_id=payload.analysis_id,
+        features=scan.features_json or {},
+        quiz=record.answers_json or {},
+    )
+    PlanService(db).generate(
+        user_id=user.id,
+        analysis_id=payload.analysis_id,
+        features=scan.features_json or {},
+        recommended_products=[s["product"] for s in scored],
+    )
+
     return QuizRead.model_validate(record)

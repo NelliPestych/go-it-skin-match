@@ -20,9 +20,11 @@ class SkinScanRepository:
         return self.db.get(SkinScan, scan_id)
 
     def list_for_user(self, user_id: int):
+        # id is a stable tiebreaker for inserts sharing the same
+        # created_at second (SQLite drops sub-second precision).
         return (
             self.db.query(SkinScan)
             .filter(SkinScan.user_id == user_id)
-            .order_by(SkinScan.created_at.desc())
+            .order_by(SkinScan.created_at.desc(), SkinScan.id.desc())
             .all()
         )

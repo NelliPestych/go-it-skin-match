@@ -1,0 +1,83 @@
+"""History aggregation service.
+
+Builds compact history cards and full details snapshots by joining
+SkinScan, QuizAnswer, Recommendation and RoutinePlan via the existing
+repositories. Lives as its own service so endpoints stay thin.
+"""
+from __future__ import annotations
+
+from typing import List, Optional
+
+from sqlalchemy.orm import Session
+
+from app.models.recommendation import Recommendation
+from app.models.skin_scan import SkinScan
+from app.repositories.plan_repo import PlanRepository
+from app.repositories.quiz_repo import QuizRepository
+from app.repositories.recommendation_repo import RecommendationRepository
+from app.repositories.scan_repo import SkinScanRepository
+from app.schemas.analysis import SkinFeatures
+from app.schemas.history import AnalysisDetails, AnalysisHistoryItem
+from app.schemas.plan import BeautyPlan
+from app.schemas.product import ProductRead
+from app.schemas.recommendation import RecommendationItem
+
+
+class HistoryService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.scan_repo = SkinScanRepository(db)
+        self.quiz_repo = QuizRepository(db)
+        self.reco_repo = RecommendationRepository(db)
+        self.plan_repo = PlanRepository(db)
+
+    def list_for_user(self, user_id: int, limit: int = 20) -> List[AnalysisHistoryItem]:
+        scans: List[SkinScan] = self.scan_repo.list_for_user(user_id)[:limit]
+        items: List[AnalysisHistoryItem] = []
+        for scan in scans:
+            features = scan.features_json or {}
+            recos: List[Recommendation] = self.reco_repo.list_for_analysis(scan.id)
+            top_products = [r.product.name for r in recos[:3] if r.product is not None]
+            items.append(
+                AnalysisHistoryItem(
+                    analysis_id=scan.id,
+                    created_at=scan.created_at,
+                    skin_type=str(features.get("skin_type", "unknown")),
+                    confidence_score=float(features.get("confidence_score", 0.0)),
+                    top_products=top_products,
+                )
+            )
+        return items
+
+    def details(self, user_id: int, analysis_id: int) -> Optional[AnalysisDetails]:
+        scan = self.scan_repo.get(analysis_id)
+        if not scan or scan.user_id != user_id:
+            return None
+
+        features = SkinFeatures.model_validate(scan.features_json or {})
+        quiz = self.quiz_repo.get_by_analysis(analysis_id)
+        plan_record = self.plan_repo.get_by_analysis(analysis_id)
+        plan_obj: Optional[BeautyPlan] = None
+        if plan_record and plan_record.plan_json:
+            plan_obj = BeautyPlan.model_validate(plan_record.plan_json)
+
+        reco_items: List[RecommendationItem] = []
+        for r in self.reco_repo.list_for_analysis(analysis_id):
+            if r.product is None:
+                continue
+            reco_items.append(
+                RecommendationItem(
+                    product=ProductRead.model_validate(r.product),
+                    score=float(r.score or 0.0),
+                    reasons=(r.reason_json or {}).get("reasons", []),
+                )
+            )
+
+        return AnalysisDetails(
+            analysis_id=scan.id,
+            created_at=scan.created_at,
+            features=features,
+            quiz_answers=quiz.answers_json if quiz else None,
+            recommendations=reco_items,
+            plan=plan_obj,
+        )
