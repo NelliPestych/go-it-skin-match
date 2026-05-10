@@ -37,6 +37,7 @@ import CaptureProgress from "../components/camera/CaptureProgress";
 import CountdownOverlay from "../components/camera/CountdownOverlay";
 import FaceOvalOverlay from "../components/camera/FaceOvalOverlay";
 import GuidanceText from "../components/camera/GuidanceText";
+import PoseArrow from "../components/camera/PoseArrow";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { useFaceMesh } from "../hooks/useFaceMesh";
@@ -64,6 +65,20 @@ export default function SmartCameraPage() {
   };
 
   const cameraReady = camStatus.kind === "ready";
+
+  // Re-attach the live MediaStream whenever the <video> element
+  // (re-)mounts. Required because `Take photos again` flips
+  // session.complete, which unmounts the active-capture branch and
+  // its <video>; on re-mount the new element has no `srcObject`
+  // and would otherwise show a black frame indefinitely. useWebcam's
+  // own attach effect doesn't fire here because `camStatus` hasn't
+  // changed — only the DOM node has.
+  useEffect(() => {
+    if (videoEl && camStatus.kind === "ready") {
+      videoEl.srcObject = camStatus.stream;
+    }
+  }, [videoEl, camStatus]);
+
   const face = useFaceMesh(videoEl, cameraReady);
   const lighting = useLightingValidation(videoEl, cameraReady);
 
@@ -187,6 +202,7 @@ export default function SmartCameraPage() {
             landmarksRef={face.landmarksRef}
             hasFace={face.hasFace}
             state={overlayState}
+            videoEl={videoEl}
           />
         )}
 
@@ -216,6 +232,9 @@ export default function SmartCameraPage() {
           <>
             <GuidanceText report={report} hint={POSE_HINT[session.pose]} />
             <CountdownOverlay digit={session.countdownDigit} />
+            {/* Directional chevron next to the oval — only while the
+                pose gate hasn't passed yet, never on `front`. */}
+            <PoseArrow pose={session.pose} visible={!gates.poseOk} />
           </>
         )}
 

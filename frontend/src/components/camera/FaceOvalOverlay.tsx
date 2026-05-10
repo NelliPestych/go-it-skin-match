@@ -36,6 +36,13 @@ interface Props {
   landmarksRef: React.MutableRefObject<FaceLandmark[]>;
   hasFace: boolean;
   state: OverlayState;
+  /**
+   * Live <video> element. Used to read `videoWidth` / `videoHeight` so
+   * the mesh can be mapped through the same `object-fit: cover` crop
+   * that the browser applies to the video — otherwise landmarks
+   * render shifted relative to the visible face.
+   */
+  videoEl: HTMLVideoElement | null;
 }
 
 const RING_COLOR: Record<OverlayState, string> = {
@@ -54,14 +61,21 @@ const MESH_COLOR: Record<OverlayState, string> = {
 // the reference once at module level keeps the per-frame draw cheap.
 const TESSELATION = FaceLandmarker.FACE_LANDMARKS_TESSELATION;
 
-export default function FaceOvalOverlay({ landmarksRef, hasFace, state }: Props) {
+export default function FaceOvalOverlay({
+  landmarksRef,
+  hasFace,
+  state,
+  videoEl,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Mirror live props into refs so the long-running RAF loop never
   // needs to be torn down — only canvas resize / unmount triggers it.
   const hasFaceRef = useRef(hasFace);
   const stateRef = useRef(state);
+  const videoRef = useRef(videoEl);
   hasFaceRef.current = hasFace;
   stateRef.current = state;
+  videoRef.current = videoEl;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -124,7 +138,22 @@ export default function FaceOvalOverlay({ landmarksRef, hasFace, state }: Props)
       // ── Face mesh inside the oval ───────────────────────────────
       if (hasFaceRef.current) {
         const lms = landmarksRef.current;
-        if (lms.length > 0) {
+        const video = videoRef.current;
+        if (lms.length > 0 && video && video.videoWidth > 0 && video.videoHeight > 0) {
+          // Compensate for `object-fit: cover`: the browser scales
+          // the source frame to cover the canvas, cropping symmetric
+          // bands on whichever axis is wider in source-space.  The
+          // landmarks come back in normalised source coords, so we
+          // map them through the same cover transform — otherwise
+          // the mesh drifts away from the visible face.
+          const srcW = video.videoWidth;
+          const srcH = video.videoHeight;
+          const scale = Math.max(w / srcW, h / srcH);
+          const visibleW = w / scale;
+          const visibleH = h / scale;
+          const cropX = (srcW - visibleW) / 2;
+          const cropY = (srcH - visibleH) / 2;
+
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
@@ -138,8 +167,12 @@ export default function FaceOvalOverlay({ landmarksRef, hasFace, state }: Props)
             const a = lms[conn.start];
             const b = lms[conn.end];
             if (!a || !b) continue;
-            ctx.moveTo(a.x * w, a.y * h);
-            ctx.lineTo(b.x * w, b.y * h);
+            const ax = (a.x * srcW - cropX) * scale;
+            const ay = (a.y * srcH - cropY) * scale;
+            const bx = (b.x * srcW - cropX) * scale;
+            const by = (b.y * srcH - cropY) * scale;
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
           }
           ctx.stroke();
           ctx.restore();

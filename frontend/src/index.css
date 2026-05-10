@@ -2002,3 +2002,48 @@ select {
   color: var(--text-60);
 }
 
+
+/* =========================================================
+   Pose direction arrow (hotfix after commit #10)
+   ========================================================= */
+
+.sc-arrow {
+  position: absolute;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  z-index: 3;
+  pointer-events: none;
+  color: #fff;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -28px;  /* manual centering — translateY conflicts with the bounce keyframe */
+}
+
+.sc-arrow svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sc-arrow-left {
+  left: 8px;
+  animation: sc-arrow-pulse-left 1.2s ease-in-out infinite;
+}
+
+.sc-arrow-right {
+  right: 8px;
+  animation: sc-arrow-pulse-right 1.2s ease-in-out infinite;
+}
+
+@keyframes sc-arrow-pulse-left {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(-12px); }
+}
+
+@keyframes sc-arrow-pulse-right {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(12px); }
+}
+
