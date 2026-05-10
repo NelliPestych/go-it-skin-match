@@ -1757,6 +1757,13 @@ select {
 
 .sc-chip {
   flex: 1;
+  /* Vertical centring matters because `.sc-chips` stretches all
+     chips to the tallest sibling — single-line labels (e.g.
+     "Lighting") would otherwise float at the top of a chip whose
+     height was set by a wrapping neighbour ("Face position"). */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-size: 10px;
   font-weight: 700;

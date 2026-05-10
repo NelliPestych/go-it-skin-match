@@ -6,22 +6,31 @@
  *      inside — so the user instinctively centres their face.
  *   2. The face mesh from MediaPipe FACE_LANDMARKS_TESSELATION
  *      (~1900 short edges) drawn in THREE passes that together
- *      produce a "wave of light rising over the face" animation:
+ *      produce a "wet-sand" wave-of-light animation — the mesh
+ *      brightens *as the wave passes through it* and gradually
+ *      decays back to baseline behind the leading edge, like wet
+ *      sand drying after a wave recedes:
  *        a) dim baseline   (α 0.32) — always visible while a face
  *                                     is detected.
- *        b) rising-wave gradient   — same path stroked with a
- *                                     vertical α-gradient from the
- *                                     oval bottom (α 0) up to the
- *                                     leading edge (α 1).  The
- *                                     leading edge climbs from
- *                                     below the oval to above it
- *                                     every 2.5 s, then fades.
+ *        b) wet-trail gradient    — same mesh re-stroked, but only
+ *                                     within a horizontal band that
+ *                                     follows the leading edge.
+ *                                     Brightness peaks AT the
+ *                                     leading edge and fades to
+ *                                     zero over a fixed `decay`
+ *                                     distance behind it (i.e.
+ *                                     below, since the wave moves
+ *                                     bottom→top). Above the
+ *                                     leading edge: untouched dim
+ *                                     baseline. Far below: also
+ *                                     baseline only — the trail
+ *                                     has "dried".
  *        c) leading-edge "glow strip" — thin clipped band right at
  *                                     the leading edge, restroked
  *                                     at full α with a heavy
- *                                     shadowBlur, so the top of the
- *                                     wave reads as a bright bar
- *                                     of light.
+ *                                     shadowBlur, so the front of
+ *                                     the wave reads as a bright
+ *                                     bar of light.
  *   3. The oval ring on top, in white-dashed / green / red depending
  *      on the overall state.
  *
@@ -236,19 +245,35 @@ export default function FaceOvalOverlay({
           ctx.globalAlpha = 0.32;
           ctx.stroke(meshPath);
 
-          // Pass 2 — rising wave: vertical alpha gradient from the
-          // tail (oval bottom, alpha 0) up to the leading edge
-          // (alpha 1).  Concentrating colour stops near 1.0 keeps
-          // the brightness focused at the top edge so it reads as
-          // a "wave of light" sweeping up rather than a uniform
-          // band.
-          const tailY = ovalBottom + ry * 0.04;
-          const grad = ctx.createLinearGradient(0, tailY, 0, leadingY);
+          // Pass 2 — wet trail: a vertical α-gradient that LIVES on
+          // top of the leading edge instead of stretching back to a
+          // fixed tail. The gradient peaks AT `leadingY` and decays
+          // to 0 over `decay` pixels below it, so the bright zone
+          // moves upward together with the wave. We additionally
+          // clip to that exact band — without the clip, gradients
+          // extend their endpoint colour to ±∞, which would re-paint
+          // the entire un-swept area above `leadingY` at α 1 (the
+          // exact "thinning" artefact the previous attempt produced
+          // when read through the dim baseline).
+          //
+          // Net visual: as `leadingY` rises, every part of the mesh
+          // briefly brightens (wave passes), then fades back to the
+          // dim baseline (sand dries). Above the wave the mesh is
+          // still untouched dim baseline.
+          const decay = ry * 0.5;
+          const trailBottomY = leadingY + decay;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, leadingY, w, decay);
+          ctx.clip();
+          const grad = ctx.createLinearGradient(0, trailBottomY, 0, leadingY);
           const a = (alpha: number) => `rgba(${mr}, ${mg}, ${mb}, ${alpha * waveOpacity})`;
+          // 0 = furthest behind the wave (dried back to baseline);
+          // 1 = right at the leading edge (wettest, brightest).
           grad.addColorStop(0, a(0));
-          grad.addColorStop(0.55, a(0.18));
-          grad.addColorStop(0.85, a(0.6));
-          grad.addColorStop(0.97, a(0.95));
+          grad.addColorStop(0.35, a(0.12));
+          grad.addColorStop(0.7, a(0.45));
+          grad.addColorStop(0.92, a(0.85));
           grad.addColorStop(1, a(1));
 
           ctx.strokeStyle = grad;
@@ -257,6 +282,7 @@ export default function FaceOvalOverlay({
           ctx.shadowColor = meshColor;
           ctx.shadowBlur = 4 * dpr;
           ctx.stroke(meshPath);
+          ctx.restore();
 
           // Pass 3 — bright "glowing strip" right at the leading
           // edge: a thin band clipped to ±4 % of ry around scanY,
