@@ -45,6 +45,7 @@ import { useLightingValidation } from "../hooks/useLightingValidation";
 import { useSmartCaptureFlow } from "../hooks/useSmartCaptureFlow";
 import { useWebcam } from "../hooks/useWebcam";
 import { evaluateGates, evaluateGuidance } from "../lib/cameraGuidance";
+import { useFlow } from "../state/flow";
 import type { CaptureStep } from "../types/camera";
 
 const POSE_HINT: Record<CaptureStep, string> = {
@@ -55,6 +56,7 @@ const POSE_HINT: Record<CaptureStep, string> = {
 
 export default function SmartCameraPage() {
   const navigate = useNavigate();
+  const flow = useFlow();
   const { status: camStatus, videoRef, restart } = useWebcam();
 
   // Surface the live <video> to face / lighting / capture hooks.
@@ -174,11 +176,20 @@ export default function SmartCameraPage() {
         <div style={{ flex: 1 }} />
 
         <div className="screen-footer" style={{ background: "transparent" }}>
-          {/* Backend wiring lands in commit #11. */}
+          {/* Hand the captured frames to the shared FlowProvider and
+              kick off the regular quiz → analyzing → results pipeline.
+              `setImageFile` (= front) intentionally clears any stale
+              `additionalImages` from a previous session, so we set
+              the side photos AFTER the front to keep them in sync. */}
           <PillButton
             onClick={() => {
-              // eslint-disable-next-line no-alert
-              alert("Backend integration lands in commit #11");
+              if (!session.images.front) return;
+              flow.setImageFile(session.images.front);
+              flow.setAdditionalImages({
+                left: session.images.left ?? null,
+                right: session.images.right ?? null,
+              });
+              navigate("/quiz/skin-type");
             }}
           >
             Continue

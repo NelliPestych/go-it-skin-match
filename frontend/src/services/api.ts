@@ -42,6 +42,33 @@ export const api = {
     );
   },
 
+  /**
+   * Smart Camera 3-shot upload: posts `front` (required) plus
+   * optional `left` / `right` side photos. The backend validates
+   * each frame, persists all three, runs heuristic analysis on
+   * `front`, and stores the side paths for future multi-angle work.
+   *
+   * Kept distinct from `uploadAnalysis` so the legacy single-image
+   * payload (`file`) remains the obvious default for the manual
+   * uploader and any older clients.
+   */
+  uploadAnalysisMulti: async (input: {
+    front: File;
+    left?: File | null;
+    right?: File | null;
+  }): Promise<AnalysisResponse> => {
+    const form = new FormData();
+    form.append("front", input.front);
+    if (input.left) form.append("left", input.left);
+    if (input.right) form.append("right", input.right);
+    return handle<AnalysisResponse>(
+      await fetch(`${BASE_URL}/analysis/upload`, {
+        method: "POST",
+        body: form,
+      }),
+    );
+  },
+
   submitQuiz: async (payload: QuizPayload) =>
     handle<{ id: number; analysis_id: number }>(
       await fetch(`${BASE_URL}/quiz/submit`, {
