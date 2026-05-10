@@ -5,13 +5,23 @@
  *   1. A vignette mask: dim outside the framing oval, transparent
  *      inside — so the user instinctively centres their face.
  *   2. The face mesh from MediaPipe FACE_LANDMARKS_TESSELATION
- *      (~1900 short edges) drawn in TWO passes:
- *        a) dim baseline (alpha ~0.32) — always visible when a face
- *           is present, so the geometry reads as locked-on;
- *        b) bright band (alpha ~0.95 + glow) clipped to a horizontal
- *           band that oscillates top ↔ bottom every 2.4 s. The
- *           shadow blur softens the band edges into a wave of light
- *           that "scans" across the mesh.
+ *      (~1900 short edges) drawn in THREE passes that together
+ *      produce a "wave of light rising over the face" animation:
+ *        a) dim baseline   (α 0.32) — always visible while a face
+ *                                     is detected.
+ *        b) rising-wave gradient   — same path stroked with a
+ *                                     vertical α-gradient from the
+ *                                     oval bottom (α 0) up to the
+ *                                     leading edge (α 1).  The
+ *                                     leading edge climbs from
+ *                                     below the oval to above it
+ *                                     every 2.5 s, then fades.
+ *        c) leading-edge "glow strip" — thin clipped band right at
+ *                                     the leading edge, restroked
+ *                                     at full α with a heavy
+ *                                     shadowBlur, so the top of the
+ *                                     wave reads as a bright bar
+ *                                     of light.
  *   3. The oval ring on top, in white-dashed / green / red depending
  *      on the overall state.
  *
@@ -20,7 +30,7 @@
  * native FPS even though the parent's React state for `useFaceMesh`
  * is throttled.
  *
- * Usage notes for commit #10:
+ * Usage:
  * - Place inside the same parent that mirrors the <video> via
  *   `transform: scaleX(-1)` so mesh coordinates align visually with
  *   the selfie preview.
@@ -58,6 +68,14 @@ const MESH_COLOR: Record<OverlayState, string> = {
   scanning: "#ffffff",
   pass: "#10b981",
   fail: "#ef4444",
+};
+
+/** Pre-parsed RGB triples — the gradient builder needs them every
+ *  frame and re-parsing the hex 60×/s is wasteful. */
+const MESH_RGB: Record<OverlayState, [number, number, number]> = {
+  scanning: [255, 255, 255],
+  pass: [16, 185, 129],
+  fail: [239, 68, 68],
 };
 
 // Static connection list owned by the FaceLandmarker class — pulling
@@ -177,34 +195,92 @@ export default function FaceOvalOverlay({
           }
 
           const meshColor = MESH_COLOR[ringS];
+          const [mr, mg, mb] = MESH_RGB[ringS];
+
+          // ── Rising-wave geometry ───────────────────────────────
+          // Single bottom→top sweep per cycle. Two phases:
+          //   rise (0..0.7) — leading edge climbs from below the
+          //                    oval to above it, ease-in-out.
+          //   fade (0.7..1) — leading edge stays at the top, the
+          //                    whole wave dissolves to alpha 0.
+          const cycle = 2500;
+          const t = ((now % cycle) / cycle);
+          const ovalTop = cy - ry;
+          const ovalBottom = cy + ry;
+          const startY = ovalBottom + ry * 0.12;
+          const endY = ovalTop - ry * 0.12;
+
+          let leadingY: number;
+          let waveOpacity: number;
+          if (t <= 0.7) {
+            const p = t / 0.7;
+            // easeInOutQuad
+            const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            leadingY = startY + (endY - startY) * eased;
+            waveOpacity = 1;
+          } else {
+            const p = (t - 0.7) / 0.3;
+            leadingY = endY;
+            waveOpacity = 1 - p; // linear fade
+          }
 
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
           ctx.clip();
 
-          // Pass 1: dim baseline.
+          // Pass 1 — dim baseline mesh, always visible while a face
+          // is detected so the geometry reads as locked-on.
           ctx.strokeStyle = meshColor;
           ctx.lineWidth = 0.5 * dpr;
           ctx.globalAlpha = 0.32;
           ctx.stroke(meshPath);
 
-          // Pass 2: bright band that sweeps top↔bottom.
-          const cycle = 2400; // ms; ~0.4 Hz oscillation
-          const phase = ((now % cycle) / cycle) * 2 * Math.PI;
-          const scanY = cy + Math.sin(phase) * ry * 0.7;
-          const bandHeight = ry * 0.45;
+          // Pass 2 — rising wave: vertical alpha gradient from the
+          // tail (oval bottom, alpha 0) up to the leading edge
+          // (alpha 1).  Concentrating colour stops near 1.0 keeps
+          // the brightness focused at the top edge so it reads as
+          // a "wave of light" sweeping up rather than a uniform
+          // band.
+          const tailY = ovalBottom + ry * 0.04;
+          const grad = ctx.createLinearGradient(0, tailY, 0, leadingY);
+          const a = (alpha: number) => `rgba(${mr}, ${mg}, ${mb}, ${alpha * waveOpacity})`;
+          grad.addColorStop(0, a(0));
+          grad.addColorStop(0.55, a(0.18));
+          grad.addColorStop(0.85, a(0.6));
+          grad.addColorStop(0.97, a(0.95));
+          grad.addColorStop(1, a(1));
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, scanY - bandHeight / 2, w, bandHeight);
-          ctx.clip();
+          ctx.strokeStyle = grad;
           ctx.lineWidth = 0.7 * dpr;
-          ctx.globalAlpha = 0.95;
+          ctx.globalAlpha = 1;
           ctx.shadowColor = meshColor;
-          ctx.shadowBlur = 10 * dpr;
+          ctx.shadowBlur = 4 * dpr;
           ctx.stroke(meshPath);
-          ctx.restore();
+
+          // Pass 3 — bright "glowing strip" right at the leading
+          // edge: a thin band clipped to ±4 % of ry around scanY,
+          // re-stroked at full alpha with a heavier shadowBlur.
+          // Skipped during the fade phase (waveOpacity → 0) and
+          // when the leading edge is outside the oval.
+          if (
+            waveOpacity > 0.05 &&
+            leadingY > ovalTop - ry * 0.05 &&
+            leadingY < ovalBottom
+          ) {
+            const stripH = ry * 0.08;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, leadingY - stripH / 2, w, stripH);
+            ctx.clip();
+            ctx.strokeStyle = meshColor;
+            ctx.lineWidth = 1.0 * dpr;
+            ctx.globalAlpha = waveOpacity;
+            ctx.shadowColor = meshColor;
+            ctx.shadowBlur = 14 * dpr;
+            ctx.stroke(meshPath);
+            ctx.restore();
+          }
 
           ctx.restore();
         }
