@@ -84,16 +84,26 @@ function computeBBox(landmarks: FaceLandmark[]): FaceBBox | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+/** Return shape of `useFaceMesh`. Extends `FaceMeshResult` with an
+ *  always-fresh ref to the latest landmarks — the throttled React
+ *  state is enough for guidance, but the canvas overlay needs pixel-
+ *  fresh data every frame and reads from the ref instead. */
+export interface UseFaceMeshReturn extends FaceMeshResult {
+  landmarksRef: React.MutableRefObject<FaceLandmark[]>;
+}
+
 export function useFaceMesh(
   videoEl: HTMLVideoElement | null,
   active: boolean,
-): FaceMeshResult {
+): UseFaceMeshReturn {
   const [result, setResult] = useState<FaceMeshResult>(INITIAL);
   const detectorRef = useRef<FaceLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
   // Throttle setState — we only want React re-renders when summary
   // fields change, not 60×/s as landmark noise jitters.
   const lastSnapshotRef = useRef<string>("");
+  // Always-fresh landmarks for the canvas overlay (commit #6).
+  const landmarksRef = useRef<FaceLandmark[]>([]);
 
   useEffect(() => {
     if (!videoEl || !active) return;
@@ -153,6 +163,10 @@ export function useFaceMesh(
         const faceLandmarks = out.faceLandmarks?.[0];
 
         if (!faceLandmarks || faceLandmarks.length === 0) {
+          // Sync the always-fresh ref BEFORE the throttled state
+          // update so the canvas overlay clears its mesh promptly
+          // even if React skips this re-render.
+          landmarksRef.current = [];
           publish({
             ready: true,
             hasFace: false,
@@ -169,6 +183,7 @@ export function useFaceMesh(
             y: p.y,
             z: p.z,
           }));
+          landmarksRef.current = lms;
           const bbox = computeBBox(lms);
           const yaw = computeYawDeg(lms);
           publish({
@@ -218,5 +233,5 @@ export function useFaceMesh(
     };
   }, [videoEl, active]);
 
-  return result;
+  return { ...result, landmarksRef };
 }

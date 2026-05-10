@@ -1713,3 +1713,18 @@ select {
   line-height: 16px;
 }
 
+
+/* =========================================================
+   Face oval overlay (commit #6) — canvas drawn on top of
+   the live <video> by FaceOvalOverlay.
+   ========================================================= */
+
+.sc-face-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
