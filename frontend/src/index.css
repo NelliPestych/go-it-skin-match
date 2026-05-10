@@ -1728,3 +1728,99 @@ select {
   z-index: 2;
 }
 
+
+/* =========================================================
+   Status panel + guidance text (commit #7)
+   ========================================================= */
+
+/* Top status panel — 3 chips + close button. */
+.sc-status-panel {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+}
+
+.sc-chips {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+
+.sc-chip {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1.5px solid currentColor;
+  /* Two-line wrap on narrow screens (e.g. "Face position"). */
+  line-height: 1.2;
+  transition: color 0.25s ease, background 0.25s ease;
+}
+
+.sc-chip[data-state="ok"] {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.sc-chip[data-state="fail"] {
+  color: #f97373;
+  background: rgba(249, 115, 115, 0.1);
+}
+
+.sc-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.sc-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Big centred guidance text above the oval. */
+.sc-guidance {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+  padding: 0 32px;
+  max-width: 90%;
+}
+
+.sc-guidance-text {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: 0.4px;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+  text-transform: uppercase;
+}
+
+.sc-guidance-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
