@@ -1824,3 +1824,80 @@ select {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
+
+/* =========================================================
+   Countdown badge + capture progress (commit #9)
+   ========================================================= */
+
+/* Big 3 → 2 → 1 in the centre of the camera frame. Re-mounted via
+   `key={digit}` so the pop animation replays on every tick. */
+.sc-countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 132px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 5;
+  animation: sc-countdown-pop 320ms ease;
+}
+
+@keyframes sc-countdown-pop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Bottom row of 3 pose-silhouette dots. */
+.sc-progress {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 0;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.sc-progress-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  transition: width 0.25s ease, height 0.25s ease,
+              border-color 0.25s ease, color 0.25s ease;
+}
+
+.sc-progress-dot svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sc-progress-dot[data-state="active"] {
+  width: 44px;
+  height: 44px;
+  border-color: #fff;
+  color: #fff;
+}
+
+.sc-progress-dot[data-state="active"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sc-progress-dot[data-state="done"] {
+  border-color: #10b981;
+  color: #10b981;
+  background: transparent;
+}
+
