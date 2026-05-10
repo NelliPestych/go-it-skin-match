@@ -118,8 +118,23 @@ export default function SmartCameraPage() {
     };
   }, [thumbUrls]);
 
+  // Defer the review screen by ~900 ms after the third capture so the
+  // user actually SEES the third pose-dot flip from "active" to
+  // green-checked.  Without this delay we'd unmount the active-capture
+  // branch the same render `session.complete` flips true and skip
+  // the visible state change altogether.
+  const [showReview, setShowReview] = useState(false);
+  useEffect(() => {
+    if (!session.complete) {
+      setShowReview(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowReview(true), 900);
+    return () => window.clearTimeout(t);
+  }, [session.complete]);
+
   // ── Final review (light cream theme, à la LRP) ─────────────────
-  if (session.complete) {
+  if (showReview) {
     return (
       <div className="sc-review-screen">
         <div className="app-header">

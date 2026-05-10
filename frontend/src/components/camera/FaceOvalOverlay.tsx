@@ -1,22 +1,24 @@
 /**
  * Canvas overlay drawn on top of the live <video>.
  *
- * Renders three layers per frame:
+ * Renders, per frame:
  *   1. A vignette mask: dim outside the framing oval, transparent
  *      inside — so the user instinctively centres their face.
- *   2. A subtle face mesh from MediaPipe FACE_LANDMARKS_TESSELATION
- *      (~1900 short edges; thin, semi-transparent).
- *   3. An animated horizontal scanning line, clipped to the oval.
+ *   2. The face mesh from MediaPipe FACE_LANDMARKS_TESSELATION
+ *      (~1900 short edges) drawn in TWO passes:
+ *        a) dim baseline (alpha ~0.32) — always visible when a face
+ *           is present, so the geometry reads as locked-on;
+ *        b) bright band (alpha ~0.95 + glow) clipped to a horizontal
+ *           band that oscillates top ↔ bottom every 2.4 s. The
+ *           shadow blur softens the band edges into a wave of light
+ *           that "scans" across the mesh.
+ *   3. The oval ring on top, in white-dashed / green / red depending
+ *      on the overall state.
  *
- * Tied together by an oval ring that switches between three states:
- *   - "scanning"  white dashed (looking for a face)
- *   - "pass"      green        (all gates green; capture imminent)
- *   - "fail"      red          (at least one gate failing)
- *
- * The drawing loop runs in its own `requestAnimationFrame` and
- * reads `landmarksRef.current` every frame so the mesh tracks the
- * face at native FPS even though the parent's React state for
- * `useFaceMesh` is throttled.
+ * The drawing loop runs in its own `requestAnimationFrame` and reads
+ * `landmarksRef.current` every frame so the mesh tracks the face at
+ * native FPS even though the parent's React state for `useFaceMesh`
+ * is throttled.
  *
  * Usage notes for commit #10:
  * - Place inside the same parent that mirrors the <video> via
@@ -51,10 +53,11 @@ const RING_COLOR: Record<OverlayState, string> = {
   fail: "#ef4444",
 };
 
+/** Solid mesh colour; alpha is controlled per-pass via globalAlpha. */
 const MESH_COLOR: Record<OverlayState, string> = {
-  scanning: "rgba(255, 255, 255, 0.5)",
-  pass: "rgba(16, 185, 129, 0.65)",
-  fail: "rgba(239, 68, 68, 0.65)",
+  scanning: "#ffffff",
+  pass: "#10b981",
+  fail: "#ef4444",
 };
 
 // Static connection list owned by the FaceLandmarker class — pulling
@@ -135,17 +138,20 @@ export default function FaceOvalOverlay({
       ctx.fill("evenodd");
       ctx.restore();
 
-      // ── Face mesh inside the oval ───────────────────────────────
+      // ── Face mesh with built-in scan band ───────────────────────
+      // Two passes:
+      //   Pass 1 — dim baseline: the whole mesh at low alpha so the
+      //            user always sees the geometry locked onto their
+      //            face.
+      //   Pass 2 — bright band: same mesh re-stroked, but clipped to
+      //            a horizontal band that oscillates top↔bottom.
+      //            shadowBlur on this pass turns the band edges into
+      //            a soft glow so the band reads as a wave of light.
       if (hasFaceRef.current) {
         const lms = landmarksRef.current;
         const video = videoRef.current;
         if (lms.length > 0 && video && video.videoWidth > 0 && video.videoHeight > 0) {
-          // Compensate for `object-fit: cover`: the browser scales
-          // the source frame to cover the canvas, cropping symmetric
-          // bands on whichever axis is wider in source-space.  The
-          // landmarks come back in normalised source coords, so we
-          // map them through the same cover transform — otherwise
-          // the mesh drifts away from the visible face.
+          // Cover-transform: same crop the browser applies to <video>.
           const srcW = video.videoWidth;
           const srcH = video.videoHeight;
           const scale = Math.max(w / srcW, h / srcH);
@@ -154,14 +160,9 @@ export default function FaceOvalOverlay({
           const cropX = (srcW - visibleW) / 2;
           const cropY = (srcH - visibleH) / 2;
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-          ctx.clip();
-
-          ctx.strokeStyle = MESH_COLOR[ringS];
-          ctx.lineWidth = 0.5 * dpr;
-          ctx.beginPath();
+          // Build the mesh path once per frame and reuse it for both
+          // passes — Path2D lets us stroke twice with different state.
+          const meshPath = new Path2D();
           for (let i = 0; i < TESSELATION.length; i++) {
             const conn = TESSELATION[i];
             const a = lms[conn.start];
@@ -171,38 +172,46 @@ export default function FaceOvalOverlay({
             const ay = (a.y * srcH - cropY) * scale;
             const bx = (b.x * srcW - cropX) * scale;
             const by = (b.y * srcH - cropY) * scale;
-            ctx.moveTo(ax, ay);
-            ctx.lineTo(bx, by);
+            meshPath.moveTo(ax, ay);
+            meshPath.lineTo(bx, by);
           }
-          ctx.stroke();
+
+          const meshColor = MESH_COLOR[ringS];
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+          ctx.clip();
+
+          // Pass 1: dim baseline.
+          ctx.strokeStyle = meshColor;
+          ctx.lineWidth = 0.5 * dpr;
+          ctx.globalAlpha = 0.32;
+          ctx.stroke(meshPath);
+
+          // Pass 2: bright band that sweeps top↔bottom.
+          const cycle = 2400; // ms; ~0.4 Hz oscillation
+          const phase = ((now % cycle) / cycle) * 2 * Math.PI;
+          const scanY = cy + Math.sin(phase) * ry * 0.7;
+          const bandHeight = ry * 0.45;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, scanY - bandHeight / 2, w, bandHeight);
+          ctx.clip();
+          ctx.lineWidth = 0.7 * dpr;
+          ctx.globalAlpha = 0.95;
+          ctx.shadowColor = meshColor;
+          ctx.shadowBlur = 10 * dpr;
+          ctx.stroke(meshPath);
+          ctx.restore();
+
           ctx.restore();
         }
       }
 
-      // ── Scanning line, clipped to the oval ──────────────────────
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-      ctx.clip();
-
-      const cycle = 2400; // ms; ~0.4 Hz oscillation
-      const phase = ((now % cycle) / cycle) * 2 * Math.PI;
-      const yOffset = Math.sin(phase) * ry * 0.7;
-      const lineY = cy + yOffset;
-      const ringColor = RING_COLOR[ringS];
-
-      ctx.strokeStyle = ringColor;
-      ctx.lineWidth = 1.5 * dpr;
-      ctx.shadowColor = ringColor;
-      ctx.shadowBlur = 6 * dpr;
-      ctx.globalAlpha = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(cx - rx * 0.85, lineY);
-      ctx.lineTo(cx + rx * 0.85, lineY);
-      ctx.stroke();
-      ctx.restore();
-
       // ── Oval ring on top ────────────────────────────────────────
+      const ringColor = RING_COLOR[ringS];
       ctx.save();
       ctx.strokeStyle = ringColor;
       ctx.lineWidth = 2.5 * dpr;
