@@ -245,19 +245,12 @@ export default function SmartCameraPage() {
 
         {cameraReady && !face.error && (
           <>
-            {/* Suppress the centre headline when only the pose gate
-                fails on a side pose: the top "TURN LEFT/RIGHT" chip
-                and the directional arrow already say it. Showing
-                the same instruction in three places reads as noisy. */}
-            {!(
-              gates.lightingOk &&
-              gates.positionOk &&
-              !gates.poseOk &&
-              session.pose !== "front"
-            ) && <GuidanceText report={report} hint={POSE_HINT[session.pose]} />}
+            <GuidanceText report={report} hint={POSE_HINT[session.pose]} />
             <CountdownOverlay digit={session.countdownDigit} />
             {/* Directional chevron next to the oval — only while the
-                pose gate hasn't passed yet, never on `front`. */}
+                pose gate hasn't passed yet, never on `front`. Sits
+                level with the centre headline so the eye reads them
+                as one unit. */}
             <PoseArrow pose={session.pose} visible={!gates.poseOk} />
           </>
         )}

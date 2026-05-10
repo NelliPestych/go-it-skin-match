@@ -1803,10 +1803,12 @@ select {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Big centred guidance text above the oval. */
+/* Centred guidance text above the oval. Tight against the top of
+   the stage so it visually pairs with the side chevron arrow at the
+   same vertical level (see `.sc-arrow`), matching LRP SpotScan. */
 .sc-guidance {
   position: absolute;
-  top: 14%;
+  top: 6%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
@@ -1819,7 +1821,7 @@ select {
 .sc-guidance-text {
   font-family: "Inter", sans-serif;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 15px;
   line-height: 1.2;
   letter-spacing: 0.4px;
   color: #fff;
@@ -1828,8 +1830,8 @@ select {
 }
 
 .sc-guidance-hint {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: 6px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
@@ -2016,9 +2018,17 @@ select {
 
 .sc-arrow {
   position: absolute;
-  top: 50%;
-  width: 56px;
-  height: 56px;
+  /* Sits level with `.sc-guidance` (top 6%) so the chevron and the
+     headline read as one row, à la LRP SpotScan. `top: 6%` aligns
+     the arrow box top with the headline; the negative margin-top
+     pulls the 40 px box up so its visual centre lands on the first
+     line of the 15 px headline rather than below it. translateY
+     would conflict with the bounce keyframe (which uses translateX
+     + opacity). */
+  top: 6%;
+  margin-top: -11px;
+  width: 40px;
+  height: 40px;
   z-index: 3;
   pointer-events: none;
   color: #fff;
@@ -2026,7 +2036,6 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: -28px;  /* manual centering — translateY conflicts with the bounce keyframe */
 }
 
 .sc-arrow svg {
