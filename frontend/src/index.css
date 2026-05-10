@@ -1726,6 +1726,10 @@ select {
   height: 100%;
   pointer-events: none;
   z-index: 2;
+  /* Mirror to match the selfie-flipped <video> below; landmarks are
+     drawn in un-mirrored source coords and the CSS flip aligns them
+     with what the user sees. */
+  transform: scaleX(-1);
 }
 
 
@@ -1899,5 +1903,102 @@ select {
   border-color: #10b981;
   color: #10b981;
   background: transparent;
+}
+
+
+/* =========================================================
+   SmartCameraPage wiring (commit #10) — flash + final review
+   ========================================================= */
+
+/* White flash overlay played for ~220 ms before the canvas grab. */
+.sc-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  z-index: 4;
+  animation: sc-flash 220ms ease-out forwards;
+}
+
+@keyframes sc-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+/* Final review — light cream theme. Reuses .app-header, PillButton,
+   `.screen-footer` from the rest of the app for consistency. */
+.sc-review-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg-cream);
+}
+
+.sc-review-thumbs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 8px var(--side-margin) 16px;
+}
+
+.sc-review-thumb {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-review-thumb img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: #efe7df;
+  /* Counter-mirror so the thumbnail reads as a natural selfie (the
+     captured frame itself is un-mirrored on disk). */
+  transform: scaleX(-1);
+}
+
+.sc-review-thumb figcaption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-50);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.sc-review-text {
+  padding: 8px var(--side-margin) 24px;
+}
+
+.sc-review-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Playfair Display", serif;
+  font-size: 28px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.sc-review-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--success);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-review-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-60);
 }
 
