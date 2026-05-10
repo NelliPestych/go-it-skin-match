@@ -212,7 +212,7 @@ export default function FaceOvalOverlay({
           //                    oval to above it, ease-in-out.
           //   fade (0.7..1) — leading edge stays at the top, the
           //                    whole wave dissolves to alpha 0.
-          const cycle = 2500;
+          const cycle = 3500;
           const t = ((now % cycle) / cycle);
           const ovalTop = cy - ry;
           const ovalBottom = cy + ry;
