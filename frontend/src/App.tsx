@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
 import CapturePage from "./pages/CapturePage";
+import SmartCameraPage from "./pages/SmartCameraPage";
 import QuizSkinTypePage from "./pages/QuizSkinTypePage";
 import QuizConcernsPage from "./pages/QuizConcernsPage";
 import AnalyzingPage from "./pages/AnalyzingPage";
@@ -16,6 +17,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/capture" element={<CapturePage />} />
+          <Route path="/smart-camera" element={<SmartCameraPage />} />
           <Route path="/quiz/skin-type" element={<QuizSkinTypePage />} />
           <Route path="/quiz/concerns" element={<QuizConcernsPage />} />
           <Route path="/analyzing" element={<AnalyzingPage />} />
