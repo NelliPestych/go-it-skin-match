@@ -29,7 +29,7 @@
  *      navigate to the quiz; AnalyzingPage dispatches the multi-image
  *      upload from there.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import CameraStatusPanel from "../components/camera/CameraStatusPanel";
@@ -85,17 +85,27 @@ export default function SmartCameraPage() {
   const lighting = useLightingValidation(videoEl, cameraReady);
 
   // The capture flow needs `passes` (computed from face + lighting +
-  // pose), but `pose` is owned BY the flow. We break the cycle with
-  // a ref written at the end of each render — the hook's effect runs
-  // after commit and picks up the latest value, with a 1-frame lag
-  // that's imperceptible at 60 fps.
-  const passesRef = useRef(false);
+  // pose), but `pose` is owned BY the flow — so we can't compute
+  // `passes` before calling the hook on the same render.  We break
+  // the cycle by feeding the hook a piece of state that lags one
+  // render behind: render N's `evaluateGuidance` runs AFTER the hook
+  // call, and if its result differs from the current value we
+  // `setPasses(...)`, which schedules render N+1 where the hook sees
+  // the fresh value.
+  //
+  // We must use state (not a ref) here: a ref write never schedules
+  // a re-render, so on a perfectly still face with stable lighting
+  // (no other state changes upstream) the hook would read `false`
+  // forever and the countdown would never start.
+  const [passes, setPasses] = useState(false);
   const captureEnabled = cameraReady && !face.error;
-  const session = useSmartCaptureFlow(videoEl, passesRef.current, captureEnabled);
+  const session = useSmartCaptureFlow(videoEl, passes, captureEnabled);
 
   const gates = evaluateGates(face, lighting, session.pose);
   const report = evaluateGuidance(face, lighting, session.pose);
-  passesRef.current = report.passes;
+  useEffect(() => {
+    if (passes !== report.passes) setPasses(report.passes);
+  }, [report.passes, passes]);
 
   const overlayState = !face.hasFace
     ? "scanning"
