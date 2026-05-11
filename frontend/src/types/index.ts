@@ -33,6 +33,7 @@ export interface AnalysisResponse {
 
 export interface QuizPayload {
   analysis_id: number;
+  // ── Legacy fields (unchanged shape; backend still primary-uses these) ──
   self_reported_skin_type?: SkinType;
   concerns: Concern[];
   sensitivity: boolean;
@@ -40,6 +41,29 @@ export interface QuizPayload {
   sun_exposure?: string;
   current_routine_complexity?: string;
   budget?: "low" | "medium" | "high";
+  // ── Step-3 extensions: new optional quiz fields ───────────────────────
+  // All optional, so older callers (manual upload + tests) still produce
+  // a valid payload without setting any of these.
+  //
+  // Until Step 4 adds matching Optional fields to the backend Pydantic
+  // schema, these keys are silently dropped by Pydantic v2 (default
+  // `extra='ignore'`).  That's intentional: shipping the wire change
+  // now lets us land Step 4 without a coordinated FE/BE deploy, and
+  // there is no regression in the meantime — the legacy fields above
+  // (skin_type, concerns, sensitivity) still carry the signals the
+  // recommendation engine already consumes.
+  routine_level?: "regularly" | "sometimes" | "no";
+  breakout_frequency?: "often" | "sometimes" | "rarely" | "never";
+  daily_environment?: "urban_pollution" | "mostly_indoors" | "sunny_outdoor";
+  sunscreen_usage?: "daily" | "sometimes" | "rarely_never";
+  /** Raw UI concerns preserved for analytics / future scoring rules.
+   *  Independent of the legacy `concerns` field, which is the mapped
+   *  projection the recommendation engine already consumes. */
+  raw_concerns?: string[];
+  /** Raw UI sensitivity level ("very_sensitive" | "sometimes_reacts" |
+   *  "not_sensitive") — preserves the 3-way signal alongside the
+   *  collapsed legacy boolean. */
+  raw_sensitivity?: "very_sensitive" | "sometimes_reacts" | "not_sensitive";
 }
 
 export interface Product {

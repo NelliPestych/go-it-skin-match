@@ -4,7 +4,13 @@ import { useNavigate } from "react-router-dom";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { api } from "../services/api";
+import {
+  mapConcernsToLegacy,
+  mapSensitivityToLegacyBool,
+  mapSkinTypeToLegacy,
+} from "../services/quizMapping";
 import { useFlow } from "../state/flow";
+import type { QuizPayload } from "../types";
 
 const STEPS = [
   "Profile data synchronized",
@@ -15,7 +21,12 @@ const STEPS = [
 
 export default function AnalyzingPage() {
   const navigate = useNavigate();
-  const { imageFile, additionalImages, skinType, concerns } = useFlow();
+  // `quizAnswers` is the new canonical source (filled by `QuizPage`).
+  // Legacy `skinType` / `concerns` views are still available on the
+  // context but no longer read here — every signal AnalyzingPage
+  // needs comes straight from `quizAnswers`, projected through the
+  // pure mappers right before the network call below.
+  const { imageFile, additionalImages, quizAnswers } = useFlow();
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,8 +37,12 @@ export default function AnalyzingPage() {
       navigate("/capture", { replace: true });
       return;
     }
-    if (!skinType) {
-      navigate("/quiz/skin-type", { replace: true });
+    // The user must have either picked an explicit skin type OR
+    // explicitly selected "not sure" — both populate `quizAnswers.skin_type`.
+    // We don't require `skinType` (legacy, non-null) here because the
+    // backend treats a missing self-reported skin type as "AI decides".
+    if (!quizAnswers.skin_type) {
+      navigate("/quiz/1", { replace: true });
       return;
     }
 
@@ -57,12 +72,29 @@ export default function AnalyzingPage() {
               right: additionalImages.right,
             })
           : await api.uploadAnalysis(imageFile);
-        await api.submitQuiz({
+
+        // Assemble the wire payload.
+        // - Legacy fields (`self_reported_skin_type`, `concerns`,
+        //   `sensitivity`) are derived from the new `quizAnswers`
+        //   via the pure mappers in `services/quizMapping.ts` so
+        //   the existing backend RecommendationEngine keeps working
+        //   unchanged.
+        // - The new optional fields (Q4..Q7 + raw_*) are sent
+        //   verbatim. Backend will adopt them in Step 4; until then
+        //   Pydantic silently drops them — see QuizPayload comment.
+        const payload: QuizPayload = {
           analysis_id: upload.analysis_id,
-          self_reported_skin_type: skinType,
-          concerns,
-          sensitivity: concerns.includes("sensitivity"),
-        });
+          self_reported_skin_type: mapSkinTypeToLegacy(quizAnswers.skin_type),
+          concerns: mapConcernsToLegacy(quizAnswers.concerns),
+          sensitivity: mapSensitivityToLegacyBool(quizAnswers.sensitivity),
+          routine_level: quizAnswers.routine_level,
+          breakout_frequency: quizAnswers.breakout_frequency,
+          daily_environment: quizAnswers.daily_environment,
+          sunscreen_usage: quizAnswers.sunscreen_usage,
+          raw_concerns: quizAnswers.concerns,
+          raw_sensitivity: quizAnswers.sensitivity,
+        };
+        await api.submitQuiz(payload);
         // ensure the loader plays at least 2.5s for UX
         await new Promise((r) => setTimeout(r, 2400));
         if (!cancelled) navigate(`/results/${upload.analysis_id}`, { replace: true });
@@ -75,7 +107,7 @@ export default function AnalyzingPage() {
       cancelled = true;
       stepTimers.forEach((t) => window.clearTimeout(t));
     };
-  }, [imageFile, additionalImages, skinType, concerns, navigate]);
+  }, [imageFile, additionalImages, quizAnswers, navigate]);
 
   return (
     <div className="screen relative analyzing-screen">

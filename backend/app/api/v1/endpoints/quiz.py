@@ -51,6 +51,12 @@ def submit_quiz(
         analysis_id=payload.analysis_id,
         features=scan.features_json or {},
         recommended_products=[s["product"] for s in scored],
+        # Forward the persisted quiz dict so PlanService can apply
+        # the routine_level / sunscreen_usage / sensitivity rules
+        # added in Step 5. `quiz` is optional on PlanService.generate(),
+        # so older callers (and unit tests that hit the service
+        # directly without a quiz dict) still work unchanged.
+        quiz=record.answers_json or {},
     )
 
     return QuizRead.model_validate(record)
