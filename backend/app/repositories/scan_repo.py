@@ -9,8 +9,23 @@ class SkinScanRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, user_id: int, image_path: str, features: Dict[str, Any]) -> SkinScan:
-        scan = SkinScan(user_id=user_id, image_path=image_path, features_json=features)
+    def create(
+        self,
+        user_id: int,
+        image_path: str,
+        features: Dict[str, Any],
+        image_front_path: Optional[str] = None,
+        image_left_path: Optional[str] = None,
+        image_right_path: Optional[str] = None,
+    ) -> SkinScan:
+        scan = SkinScan(
+            user_id=user_id,
+            image_path=image_path,
+            image_front_path=image_front_path,
+            image_left_path=image_left_path,
+            image_right_path=image_right_path,
+            features_json=features,
+        )
         self.db.add(scan)
         self.db.commit()
         self.db.refresh(scan)

@@ -20,7 +20,15 @@ export interface SkinFeatures {
 export interface AnalysisResponse {
   analysis_id: number;
   features: SkinFeatures;
+  /** Mirror of the legacy single-image column; for Smart Camera
+   *  uploads it equals `image_front_path`. */
   image_path: string;
+  /** Per-pose paths from the Smart Camera 3-shot upload.  Null on
+   *  legacy single-image uploads.  MVP uses `image_front_path`
+   *  for analysis; left / right are stored for future use. */
+  image_front_path?: string | null;
+  image_left_path?: string | null;
+  image_right_path?: string | null;
 }
 
 export interface QuizPayload {

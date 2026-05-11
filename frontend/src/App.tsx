@@ -1,7 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
-import CapturePage from "./pages/CapturePage";
+// `pages/CapturePage.tsx` is intentionally kept on disk as a fallback
+// component (per plan #3) but is no longer mounted: /capture now
+// serves SmartCameraIntroPage, which inlines the manual-upload picker.
+import SmartCameraIntroPage from "./pages/SmartCameraIntroPage";
+import SmartCameraPage from "./pages/SmartCameraPage";
 import QuizSkinTypePage from "./pages/QuizSkinTypePage";
 import QuizConcernsPage from "./pages/QuizConcernsPage";
 import AnalyzingPage from "./pages/AnalyzingPage";
@@ -15,7 +19,8 @@ export default function App() {
       <div className="mobile-frame">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/capture" element={<CapturePage />} />
+          <Route path="/capture" element={<SmartCameraIntroPage />} />
+          <Route path="/smart-camera" element={<SmartCameraPage />} />
           <Route path="/quiz/skin-type" element={<QuizSkinTypePage />} />
           <Route path="/quiz/concerns" element={<QuizConcernsPage />} />
           <Route path="/analyzing" element={<AnalyzingPage />} />

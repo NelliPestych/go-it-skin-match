@@ -15,6 +15,11 @@ without rewriting the API contracts.
 ## ✨ MVP features
 
 - **Photo upload** with image validation (format, size, dimensions).
+  Two ingestion paths share the same `/analysis/upload` endpoint:
+  a legacy single-image form (manual uploader, older clients) and a
+  Smart Camera 3-shot form (`front` + optional `left` / `right`)
+  used by the in-browser guided capture. See
+  [Smart Camera capture](#-smart-camera-capture) below.
 - **Heuristic AI analysis** of the face image using OpenCV/NumPy →
   produces `skin_type`, `redness_level`, `hydration_level`,
   `pigmentation_level`, `pores_score`, `confidence_score`.
@@ -137,6 +142,54 @@ npm run dev
 The backend will create tables and seed the product catalogue
 automatically on first start.
 
+### Testing the Smart Camera locally
+
+The guided 3-shot flow needs a real camera + a secure context.
+`http://localhost` is treated as secure by every modern browser,
+so the dev setup above works without TLS:
+
+1. `docker compose up --build` (or the manual `uvicorn` + `npm run
+   dev` combo).
+2. Open `http://localhost:8080` (Docker) or `http://localhost:5173`
+   (manual).
+3. Navigate to `/capture` and pick **"Take 3 selfies"**.
+4. Grant camera permission when the browser prompts.
+5. Follow the headline / chips — once all three turn green, the
+   3-2-1 countdown plays and the shutter captures.
+6. Repeat for left and right poses; on the review screen press
+   **Continue** to fall through to the quiz → analyzing → results
+   pipeline.
+7. The manual uploader is reachable from the same `/capture` page
+   via **"Upload photo instead"**; this exercises the legacy
+   single-image path.
+
+Backend smoke check after capture:
+
+```bash
+sqlite3 backend/skinmatch.db \
+  'SELECT id, image_front_path, image_left_path, image_right_path FROM skin_scans ORDER BY id DESC LIMIT 1;'
+# all three columns should be populated paths for Smart Camera scans
+# and NULL on rows created via the legacy single-image uploader.
+```
+
+If the camera button never starts: open DevTools → Console for the
+`getUserMedia` rejection reason. On non-localhost HTTP origins this
+will be a `NotAllowedError` because the secure-context check fails;
+serve over HTTPS or use `localhost`.
+
+### Running the tests
+
+```bash
+# Backend (34 tests, in-memory SQLite, no Docker required)
+cd backend && pytest -q
+
+# Frontend (17 tests: cameraGuidance + FlowProvider + api)
+cd frontend && npm test
+
+# Frontend type-check / production build (CI parity)
+cd frontend && npm run typecheck && npm run build
+```
+
 ---
 
 ## 🎬 Week 2 demo flow
@@ -236,7 +289,7 @@ curl -s http://localhost:8000/plan/$ANALYSIS | jq '.summary'
 |--------|-------------------------------------|------------------------------------------------------|
 | GET    | `/health`                           | Service health (database + Redis)                    |
 | POST   | `/auth/login`                       | Mock login — returns a bearer token for an email     |
-| POST   | `/analysis/upload`                  | Upload an image, run AI analysis, persist scan       |
+| POST   | `/analysis/upload`                  | Single (`file`) or 3-shot (`front`+`left?`+`right?`) — see [Smart Camera capture](#-smart-camera-capture) |
 | GET    | `/analysis/history`                 | List previous analyses (newest first) for the user   |
 | GET    | `/analysis/{analysis_id}`           | Fetch raw skin features for an analysis              |
 | GET    | `/analysis/{analysis_id}/details`   | Full snapshot — features + quiz + recos + plan       |
@@ -286,6 +339,126 @@ machine-learning thesis. The architecture (single
 the heuristic implementation can be replaced by a trained CNN
 (MobileNet, EfficientNet, or a fine-tuned transformer) without
 touching the service or API layers.
+
+---
+
+## 📸 Smart Camera capture
+
+The `/smart-camera` route is an LRP-style guided 3-shot capture
+flow built on top of MediaPipe FaceLandmarker (478 landmarks),
+WebRTC `getUserMedia`, and a Canvas2D overlay. It walks the user
+through three poses — **front**, **left**, **right** — gating each
+capture on three independent checks:
+
+| Gate           | Source                                         |
+|----------------|------------------------------------------------|
+| Lighting       | 4 Hz Rec.709 luminance sampler over a 64×64 patch |
+| Face position  | size + centring of the bounding box from MediaPipe |
+| Pose (yaw)     | rough degrees from `(noseTip.x − eyeMidX) / eyeWidth × 60` |
+
+When all three gates pass we hold for 800 ms (stability), play a
+3-2-1 countdown, flash, and capture a JPEG.
+
+### Multi-image upload contract
+
+`POST /analysis/upload` accepts **either** payload, never a mix:
+
+```http
+# Legacy (manual uploader / older clients)
+file: <image>
+
+# Smart Camera 3-shot (front required, sides optional)
+front: <image>
+left:  <image>?
+right: <image>?
+```
+
+Server-side behaviour:
+
+- Each frame is validated independently (content-type, extension,
+  size). A bad side frame fails the whole request with a 415.
+- All accepted frames are persisted to disk; the front file is
+  mirrored into the legacy `image_path` column on `SkinScan` so
+  history, details, and recommendation reads keep working with
+  zero branching.
+- Per-pose paths land in the new nullable columns
+  `image_front_path`, `image_left_path`, `image_right_path`.
+- **MVP heuristic analysis runs on the FRONT image only.** The
+  side photos are stored for a future multi-angle pipeline (the
+  `SkinAnalyzer` interface is ready to accept multiple frames once
+  a trained model can use them).
+
+The response payload echoes whichever paths were set:
+
+```json
+{
+  "analysis_id": 42,
+  "features": { ... },
+  "image_path":        "uploads/abcdef.jpg",   // = image_front_path on multi
+  "image_front_path":  "uploads/abcdef.jpg",   // null on legacy
+  "image_left_path":   "uploads/123456.jpg",   // null if not sent
+  "image_right_path":  "uploads/789abc.jpg"    // null if not sent
+}
+```
+
+The frontend dispatches automatically: `AnalyzingPage` posts to
+`uploadAnalysisMulti` whenever `flow.additionalImages` carries
+either side photo, and falls back to the legacy `uploadAnalysis`
+otherwise — so the manual uploader remains a fully supported path.
+
+### Manual upload fallback
+
+The `/capture` route still mounts a `SmartCameraIntroPage` that
+offers **both** options side-by-side:
+
+- **"Take 3 selfies"** → opens `/smart-camera` and the guided flow.
+- **"Upload photo instead"** → opens the system file picker, hands
+  the picked file straight to `flow.setImageFile`, and navigates to
+  `/quiz/skin-type`. The legacy `CapturePage.tsx` is retained on
+  disk as a reference for the previous capture UI but is no longer
+  routed to.
+
+If the user denies camera permission, or the device has no camera,
+the Smart Camera flow surfaces an error overlay with a "Try again"
+button and the same "Upload photo instead" pill in the footer is
+always available.
+
+### Browser / device requirements
+
+- **HTTPS is required in production.** Browsers gate
+  `navigator.mediaDevices.getUserMedia` behind a secure context;
+  the only exception is `http://localhost`, which is treated as
+  secure for local dev. Any non-localhost HTTP origin (LAN IP,
+  staging on plain `http://`) will silently return `undefined` for
+  `mediaDevices` and the camera will refuse to start. The deploy
+  story therefore needs a TLS-terminating proxy or load balancer
+  in front of the frontend.
+- **MediaPipe assets.** The face landmarker pulls its WASM bundle
+  from `cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm`
+  and a ~3.7 MB `face_landmarker.task` float-16 model from
+  `storage.googleapis.com/mediapipe-models/...`. Both must be
+  reachable from the user's browser; if you self-host the bundle,
+  override the CDN paths in `useFaceMesh.ts`. Total Smart Camera
+  payload over the wire on first visit is ≈ 6 MB (WASM + model);
+  subsequent loads are cached.
+- **iOS Safari quirk.** The `<video>` element must carry both
+  `autoPlay` and `playsInline` — without `playsInline`, iOS opens
+  the stream full-screen. Both are already set on `SmartCameraPage`.
+
+### Storage note (no production DB yet)
+
+Because the project is **not deployed yet**, the new `image_front_path`,
+`image_left_path`, and `image_right_path` columns are part of the
+initial schema that `Base.metadata.create_all()` materialises from
+SQLAlchemy. There are no production rows to migrate.
+
+⚠️ **Future deployments with an existing database WILL need a
+migration.** `Base.metadata.create_all()` only creates *missing*
+tables; it does not add columns to existing ones. When the project
+ships, introduce Alembic (or a one-shot `ALTER TABLE` script in
+`backend/app/db/`) and add the three columns as nullable before
+rolling out the new image. Until then, fresh dev databases just
+work out of the box.
 
 ---
 

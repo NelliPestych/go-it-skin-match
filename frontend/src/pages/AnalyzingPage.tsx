@@ -15,7 +15,7 @@ const STEPS = [
 
 export default function AnalyzingPage() {
   const navigate = useNavigate();
-  const { imageFile, skinType, concerns } = useFlow();
+  const { imageFile, additionalImages, skinType, concerns } = useFlow();
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +44,19 @@ export default function AnalyzingPage() {
 
     (async () => {
       try {
-        const upload = await api.uploadAnalysis(imageFile);
+        // Dispatch on whether the user has any side photos: Smart
+        // Camera → multi-image POST so all 3 frames are persisted;
+        // manual uploader → legacy single-image POST.  The backend
+        // accepts both and runs heuristic analysis on `front` only
+        // either way, so the rest of this flow is identical.
+        const hasExtras = !!(additionalImages.left || additionalImages.right);
+        const upload = hasExtras
+          ? await api.uploadAnalysisMulti({
+              front: imageFile,
+              left: additionalImages.left,
+              right: additionalImages.right,
+            })
+          : await api.uploadAnalysis(imageFile);
         await api.submitQuiz({
           analysis_id: upload.analysis_id,
           self_reported_skin_type: skinType,
@@ -63,7 +75,7 @@ export default function AnalyzingPage() {
       cancelled = true;
       stepTimers.forEach((t) => window.clearTimeout(t));
     };
-  }, [imageFile, skinType, concerns, navigate]);
+  }, [imageFile, additionalImages, skinType, concerns, navigate]);
 
   return (
     <div className="screen relative analyzing-screen">
