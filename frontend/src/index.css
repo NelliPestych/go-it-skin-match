@@ -408,20 +408,25 @@ select {
   color: white;
 }
 
-/* Concern square card (grid 2x3) */
+/* Concern square card.  Sized for grids of any length — the
+   `.concerns-grid > :last-child:nth-child(odd)` rule below takes
+   care of an orphan card on an odd-count grid (7 options). */
 .option-square {
   width: 100%;
   border-radius: var(--r-xl);
-  padding: 20px;
+  padding: 16px;
   background: var(--rose);
   border: 1px solid white;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
+  gap: 10px;
   text-align: left;
   position: relative;
-  min-height: 128px;
+  /* min-height kept (slightly tighter than before) so cards still
+     line up vertically across the grid even when one label wraps
+     to two lines and its neighbour stays single-line. */
+  min-height: 108px;
   transition: transform 0.1s ease;
 }
 
@@ -434,31 +439,32 @@ select {
 }
 
 .option-square .icon-tile {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .option-square h4 {
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.2;
   margin: 0;
   color: var(--text);
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
 }
 
 .option-square .check {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 20px;
-  height: 20px;
+  top: 14px;
+  right: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--r-pill);
   border: 1px solid var(--text);
   display: flex;
@@ -466,7 +472,7 @@ select {
   justify-content: center;
   background: transparent;
   color: white;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .option-square.selected .check {
@@ -1386,9 +1392,23 @@ select {
 .concerns-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
   padding: 0 var(--side-margin);
-  margin-top: 24px;
+  margin-top: 20px;
+}
+
+/* When the option count is odd (7 in the current quiz config), the
+   last card would otherwise sit alone in a half-width column.
+   Span it across both columns AND switch to a horizontal layout so
+   the orphan reads as a deliberate full-width pill rather than an
+   unfilled half-row.  Generic rule — works for 5 / 7 / 9 / …
+   options and is a no-op for even counts. */
+.concerns-grid > .option-square:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
 }
 
 /* Inline upload styling */
