@@ -23,8 +23,13 @@ without rewriting the API contracts.
 - **Heuristic AI analysis** of the face image using OpenCV/NumPy →
   produces `skin_type`, `redness_level`, `hydration_level`,
   `pigmentation_level`, `pores_score`, `confidence_score`.
-- **Quiz** capturing self-reported skin type, concerns, sensitivity,
-  age, and budget.
+- **Quiz** — config-driven 7-step skincare survey covering
+  self-perceived skin type, primary concerns, sensitivity level,
+  current routine, breakout frequency, daily environment, and
+  sunscreen habits. Questions live in
+  [`frontend/src/config/skinQuiz.ts`](frontend/src/config/skinQuiz.ts);
+  see [Skincare quiz design](#-skincare-quiz-design) for the
+  signal-flow rationale.
 - **Rule-based + scoring recommendation engine** combining AI features
   and quiz answers to rank a product catalogue, with human-readable
   explanations for every match.
@@ -459,6 +464,119 @@ ships, introduce Alembic (or a one-shot `ALTER TABLE` script in
 `backend/app/db/`) and add the three columns as nullable before
 rolling out the new image. Until then, fresh dev databases just
 work out of the box.
+
+---
+
+## 🧬 Skincare quiz design
+
+The Smart Camera + AI analyser tells us **what the skin looks like**;
+the quiz tells us **what the user is doing about it and what they
+need help with**. The two streams meet inside the recommendation +
+plan services. We keep the quiz config-driven (`frontend/src/config/
+skinQuiz.ts`) so questions can be added or reworded without touching
+the rendering page.
+
+### Why a quiz at all (and not just AI)
+
+Heuristic image analysis returns six numeric signals (skin type +
+4 levels + 2 scores) but cannot — and shouldn't try to — infer:
+
+| Signal | Source | Why not the AI |
+|--------|--------|----------------|
+| Self-perceived skin type | Quiz (Q1) | Lets us compare with AI-detected type → confidence reading; lets undecided users defer to AI ("not sure"). |
+| User-prioritised concerns | Quiz (Q2) | The image can spot redness/pores objectively, but "acne breakouts" / "fine lines" / "dryness as a feeling" are subjective. |
+| Sensitivity level | Quiz (Q3) | Reactivity is behavioural — only the user knows whether retinol burns. |
+| Current routine level | Quiz (Q4) | Plan complexity has to match the user's actual willingness, not their skin's objective need. |
+| Breakout frequency | Quiz (Q5) | A clear-looking day in the photo says nothing about monthly cycles. |
+| Daily environment | Quiz (Q6) | Pollution / sun exposure depends on geography + lifestyle, not on facial pixels. |
+| Sunscreen usage | Quiz (Q7) | Pure behaviour question; SPF education is high-value for the "rarely or never" cohort. |
+
+### Question → answer slot → backend signal
+
+The full set is a flat `QuizQuestion[]` array (see
+`frontend/src/config/skinQuiz.ts`). At submit time
+`frontend/src/services/quizMapping.ts` projects the rich UI
+vocabulary down to the legacy `Concern` enum the recommendation
+engine has always understood, and the new fields ride along as
+optional extras:
+
+```
+UI option            → wire field                            → consumer
+─────────────────────────────────────────────────────────────────────────
+Q1 skin_type         self_reported_skin_type (legacy)           reco confidence
+                     ("not_sure" collapses to omitted field —
+                      backend treats it as "AI decides")
+Q2 concerns          concerns      (legacy, mapped + deduped)   reco scoring
+                   + raw_concerns  (new, preserved 7-way)       analytics
+Q3 sensitivity       sensitivity   (legacy bool — true ONLY     reco engine
+                                    for "very_sensitive")
+                   + raw_sensitivity (new, 3-way)               plan rules
+Q4 routine_level     routine_level (new)                        plan rules
+Q5 breakout_freq     breakout_frequency (new)                   reco rule
+Q6 daily_env         daily_environment (new)                    reco rule
+Q7 sunscreen_usage   sunscreen_usage (new)                      reco + plan
+```
+
+The 6 new optional fields land in `QuizAnswer.answers_json`
+without a DB migration — the column is already a JSON blob and
+`QuizService.submit()` already dumps the whole Pydantic payload.
+
+### How answers shape recommendations
+
+`backend/app/services/recommendation_service.py` keeps its existing
+algebra (concern weights, budget, skin-type filter, core-category
+bonus). Three new IF-branches inside the per-product loop add small,
+deterministic bumps:
+
+| Quiz signal | Catalogue match | Score bonus | Reason emitted |
+|-------------|-----------------|-------------|----------------|
+| `breakout_frequency == "often"` | `concerns ∋ "oiliness"` OR `"pores"` | **+0.5** | "Helps with frequent breakouts" |
+| `sunscreen_usage == "rarely_never"` | `category == "sunscreen"` | **+0.6** | "Supports daily sun protection" |
+| `daily_environment == "urban_pollution"` | `concerns ∋ "pigmentation"` (antioxidant proxy) | **+0.3** | "Helps protect skin from pollution" |
+
+Rules are independent — no compounding, no thresholds, no
+ingredient-string parsing. Each one reads exactly one quiz field
+and matches against exactly one static catalogue tag. Unknown /
+typo values for a quiz field silently degrade to no-op.
+
+A subtle Step-4 design choice: the `sunscreen_usage` bonus is
+applied **before** the score-zero filter, so an SPF product
+appears in the top-N even for a user who declared no explicit
+concerns. This matches the intent of "tell rare-sunscreen users
+they need SPF".
+
+### How answers shape the routine plan
+
+`backend/app/services/plan_service.py` exposes the same kind of
+single-purpose IF-branches at the plan layer:
+
+| Quiz signal | Effect |
+|-------------|--------|
+| `routine_level == "no"` | Collapse to a 3-step morning (cleanser → moisturizer → SPF) and a 2-step evening (cleanser → moisturizer). Beginners get something they can actually keep up with. |
+| `sensitivity == True` *or* `raw_sensitivity == "very_sensitive"` | Drop the evening "treatment" (retinol/acid) step. Swap the Monday weekly tip to a gentler enzyme-exfoliation suggestion. Append a 24h patch-test reminder to lifestyle tips. |
+| `sunscreen_usage == "rarely_never"` | Add an "Every day" weekly SPF reminder and a "set a phone reminder for the first 2 weeks" lifestyle nudge. |
+
+If both `routine_level=no` and `very_sensitive` are set, the
+beginner sequence wins — it already lacks the "treatment" step,
+so the rules converge rather than conflict.
+
+### Diploma-defence cheat sheet
+
+- **Every rule is one IF-statement** — searchable by the constants
+  `BREAKOUT_BONUS` / `SUNSCREEN_BONUS` / `POLLUTION_BONUS` in
+  `recommendation_service.py` and `_select_sequences()` /
+  `_is_very_sensitive()` in `plan_service.py`. No "scoring
+  pipelines", no derived weights.
+- **Every rule emits a human-readable reason** persisted in
+  `Recommendation.reason_json`. The `/recommendations/:id` UI
+  shows them verbatim, so any scoring decision can be explained
+  back to the user without reading source.
+- **Every rule is unit-tested in isolation** — see `test_plan.py` +
+  the 5 new cases in `test_recommendations.py`. A regression in
+  one rule fails one specific test name.
+- **All Step-3..Step-5 wire additions are optional** — legacy
+  callers (manual upload + pre-existing tests) keep working
+  byte-for-byte. Documented inline in every affected schema.
 
 ---
 
