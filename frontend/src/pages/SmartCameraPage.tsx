@@ -25,9 +25,9 @@
  *   3. Compute report/gates from face + lighting + current pose.
  *   4. Drive the capture flow off `report.passes`.
  *   5. Render the final triptych review when session.complete.
- *
- * Backend integration (Continue → /quiz/skin-type with imageFile)
- * lands in commit #11.
+ *   6. On Continue, push the 3 captured Files into FlowProvider and
+ *      navigate to the quiz; AnalyzingPage dispatches the multi-image
+ *      upload from there.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
