@@ -123,7 +123,7 @@ export default function QuizPage() {
         <QuizHeader
           step={step}
           totalSteps={SKIN_QUIZ_TOTAL_STEPS}
-          hint={question.type === "multi" ? "Select all that apply" : "Personalizing Results..."}
+          hint={question.type === "multi" ? "Pick all that match your skin" : "Personalizing Results..."}
           onBack={onBack}
         />
       </div>
@@ -145,7 +145,7 @@ export default function QuizPage() {
             onSelect={handleSingleSelect}
           />
         ) : (
-          <MultiSelectGrid
+          <MultiSelectList
             options={question.options}
             selectedIds={(quizAnswers.concerns ?? []) as string[]}
             onToggle={handleMultiToggle}
@@ -163,12 +163,6 @@ export default function QuizPage() {
         >
           {step === SKIN_QUIZ_TOTAL_STEPS ? "Finish" : "Continue"}
         </PillButton>
-        {question.type === "multi" && (
-          <div className="helper" style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-            <span>🔒</span>
-            <span>Your data is secure & clinical grade</span>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -215,7 +209,7 @@ function SingleSelectList({
   );
 }
 
-function MultiSelectGrid({
+function MultiSelectList({
   options,
   selectedIds,
   onToggle,
@@ -225,26 +219,28 @@ function MultiSelectGrid({
   onToggle: (id: string) => void;
 }) {
   return (
-    <div className="concerns-grid relative">
+    <>
       {options.map((opt) => {
         const selected = selectedIds.includes(opt.id);
         return (
           <button
             key={opt.id}
             type="button"
-            className={"option-square" + (selected ? " selected" : "")}
+            className={"option-card option-card--compact" + (selected ? " selected" : "")}
             style={{ background: opt.bg ?? "white" }}
             onClick={() => onToggle(opt.id)}
             aria-pressed={selected}
           >
-            <div className="icon-tile">
-              <span>{opt.icon ?? "•"}</span>
+            <div className="icon-tile" style={{ background: "rgba(255,255,255,0.5)" }}>
+              <span style={{ fontSize: 20 }}>{opt.icon ?? "•"}</span>
             </div>
-            <h4>{opt.label}</h4>
-            <div className="check">{selected && "✓"}</div>
+            <div className="body-text">
+              <h4>{opt.label}</h4>
+            </div>
+            <div className="radio">{selected && "✓"}</div>
           </button>
         );
       })}
-    </div>
+    </>
   );
 }

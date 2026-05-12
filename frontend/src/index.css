@@ -358,6 +358,21 @@ select {
   box-shadow: var(--shadow-md);
 }
 
+/* Compact variant — used by multi-select where each row carries only
+   icon + label (no description).  Shorter padding + smaller tile keep
+   all 7 concerns on one screen.  Background colour comes from the
+   per-option inline style, same as the single-select variant. */
+.option-card.option-card--compact {
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+
+.option-card.option-card--compact .icon-tile {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+
 .option-card .icon-tile {
   width: 40px;
   height: 40px;
