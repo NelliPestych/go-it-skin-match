@@ -122,7 +122,7 @@ export default function HistoryPage() {
 
       <div style={{ flex: 1 }} />
 
-      <div className="screen-footer relative" style={{ background: "var(--bg-results)" }}>
+      <div className="screen-footer relative">
         <PillButton onClick={() => navigate("/capture")} variant="secondary">
           + New analysis
         </PillButton>

@@ -34,7 +34,7 @@ export default function QuizHeader({ step, totalSteps, hint, onClose, onBack }: 
       </div>
       <div className="progress-row">
         <span className="progress-step">
-          Step {step} <span className="of">of {totalSteps}</span>
+          {step} <span className="of">/ {totalSteps}</span>
         </span>
         {hint && <span className="progress-hint">{hint}</span>}
       </div>
