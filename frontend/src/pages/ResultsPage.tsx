@@ -237,7 +237,7 @@ export default function ResultsPage() {
         </section>
       )}
 
-      <div className="screen-footer relative" style={{ background: "var(--bg-results)" }}>
+      <div className="screen-footer relative">
         <PillButton trailingIcon={<span>→</span>}>Shop My Selection</PillButton>
       </div>
     </div>
