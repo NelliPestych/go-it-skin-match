@@ -128,75 +128,34 @@ export default function HomePage() {
 }
 
 /**
- * Hero visual — pure CSS / inline SVG, no external assets.
+ * Hero visual — photographic face-mesh portrait + animated scan line.
  *
  * Composition (back to front):
- *   1. Gradient card background (rose → lavender → cream, diagonal).
- *   2. Two blurred glow blobs in opposite corners.
- *   3. Three concentric scan rings, sized from large → small, drawn
- *      as SVG strokes so the line weight stays crisp on any DPR.
- *   4. A subtle vertical oval — the "face hint" — with four small
- *      mesh dots at eye / nose-bridge / mouth positions. Communicates
- *      "skin scan" without depicting a literal face.
- *   5. A slow scan-line that translates top-to-bottom over the whole
- *      composition (CSS keyframe, paused under prefers-reduced-motion).
+ *   1. `/intro-face-mesh.png` (in `public/`) — a portrait photo with
+ *      an AI face-mesh overlay baked in. This is the primary visual:
+ *      it communicates "AI skin analysis" instantly without copy.
+ *   2. A soft bottom-edge fade — blends the bottom of the photo into
+ *      the cream page background so the hero doesn't read as a
+ *      hard-edged card sitting on the layout.
+ *   3. A slow scan-line that travels top → bottom over the photo,
+ *      reinforcing the "currently scanning" feel. CSS keyframe,
+ *      paused under `prefers-reduced-motion: reduce`.
+ *
+ * The image is loaded eagerly (default) because it IS the first
+ * paint — lazy-loading would create a flash. ~860 kB PNG; an
+ * acceptable cost for the landing screen and easily re-encodable
+ * to ~200 kB WebP later if perf telemetry asks for it.
  */
 function IntroHero() {
   return (
     <div className="intro-hero" aria-hidden="true">
-      <div className="intro-hero-glow intro-hero-glow-top" />
-      <div className="intro-hero-glow intro-hero-glow-bottom" />
-
-      <svg
-        className="intro-hero-svg"
-        viewBox="0 0 200 240"
-        preserveAspectRatio="xMidYMid meet"
-        fill="none"
-      >
-        {/* Concentric scan rings — outer → inner. */}
-        <ellipse
-          cx="100"
-          cy="120"
-          rx="88"
-          ry="108"
-          stroke="rgba(26,26,26,0.18)"
-          strokeWidth="1"
-          strokeDasharray="3 5"
-        />
-        <ellipse
-          cx="100"
-          cy="120"
-          rx="70"
-          ry="88"
-          stroke="rgba(26,26,26,0.22)"
-          strokeWidth="1"
-        />
-        <ellipse
-          cx="100"
-          cy="120"
-          rx="52"
-          ry="68"
-          stroke="rgba(26,26,26,0.28)"
-          strokeWidth="1.2"
-        />
-
-        {/* Face hint — softer vertical oval at the centre. */}
-        <ellipse
-          cx="100"
-          cy="120"
-          rx="36"
-          ry="50"
-          stroke="rgba(26,26,26,0.55)"
-          strokeWidth="1.4"
-        />
-
-        {/* Mesh dots — eye / eye / nose-bridge / mouth. */}
-        <circle cx="86" cy="108" r="1.6" fill="rgba(26,26,26,0.6)" />
-        <circle cx="114" cy="108" r="1.6" fill="rgba(26,26,26,0.6)" />
-        <circle cx="100" cy="124" r="1.4" fill="rgba(26,26,26,0.5)" />
-        <circle cx="100" cy="146" r="1.4" fill="rgba(26,26,26,0.5)" />
-      </svg>
-
+      <img
+        src="/intro-face-mesh.png"
+        alt=""
+        className="intro-hero-image"
+        draggable={false}
+      />
+      <div className="intro-hero-fade" />
       <div className="intro-hero-scanline" />
     </div>
   );
