@@ -636,13 +636,13 @@ select {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* 40 % places the visible window slightly above centre so the
-     viewer keeps a sliver of background above the hairline AND
-     enough vertical room below the chin to show neck + collarbone.
-     The PNG was pre-trimmed (20 px top, 50 px bottom of dead
-     beige background) so this position lands the face dead-centre
-     visually. */
-  object-position: center 40%;
+  /* The asset is a tightly-framed portrait (752 × 1138, aspect
+     0.661) where the head sits in the upper half and shoulders
+     fill the bottom edge.  Biasing the visible window upward
+     (`center 30%`) keeps a few px of background above the hairline
+     and the full face + neck in frame; the lower torso crops away
+     unobtrusively at the bottom edge. */
+  object-position: center 30%;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
