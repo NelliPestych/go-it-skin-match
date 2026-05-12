@@ -35,46 +35,15 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // type later to compute recommendation confidence.
   {
     id: "skin_type",
-    title: "How would you describe your skin type?",
-    subtitle: "We compare your answer with our AI reading to fine-tune your routine.",
+    title: "What's your skin type?",
     type: "single",
     required: true,
     options: [
-      {
-        id: "dry",
-        label: "Dry",
-        description: "Tight, flaky, or dull appearance",
-        icon: "💧",
-        bg: "var(--cream)",
-      },
-      {
-        id: "oily",
-        label: "Oily",
-        description: "Shiny, enlarged pores, acne-prone",
-        icon: "✨",
-        bg: "var(--mint)",
-      },
-      {
-        id: "combination",
-        label: "Combination",
-        description: "Oily T-zone, dry or normal cheeks",
-        icon: "🌗",
-        bg: "var(--rose)",
-      },
-      {
-        id: "normal",
-        label: "Normal",
-        description: "Balanced, smooth, few imperfections",
-        icon: "🪷",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "not_sure",
-        label: "Not sure",
-        description: "Let the AI analysis decide for you",
-        icon: "❓",
-        bg: "var(--sky)",
-      },
+      { id: "dry", label: "Dry", icon: "💧", bg: "var(--cream)" },
+      { id: "oily", label: "Oily", icon: "✨", bg: "var(--mint)" },
+      { id: "combination", label: "Combination", icon: "🌗", bg: "var(--rose)" },
+      { id: "normal", label: "Normal", icon: "🪷", bg: "var(--lavender)" },
+      { id: "not_sure", label: "Not sure", icon: "❓", bg: "var(--sky)" },
     ],
   },
 
@@ -84,53 +53,17 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // `services/quizMapping.ts`.
   {
     id: "concerns",
-    title: "What are your main skin concerns?",
-    subtitle: "Pick everything that bothers you — we'll prioritise products that address them.",
+    title: "Your main concerns?",
     type: "multi",
     required: true,
     options: [
-      {
-        id: "acne_breakouts",
-        label: "Acne / breakouts",
-        icon: "🌋",
-        bg: "var(--rose)",
-      },
-      {
-        id: "redness",
-        label: "Redness",
-        icon: "🌹",
-        bg: "var(--rose)",
-      },
-      {
-        id: "dryness",
-        label: "Dryness",
-        icon: "💧",
-        bg: "var(--cream)",
-      },
-      {
-        id: "oiliness",
-        label: "Oiliness",
-        icon: "🧴",
-        bg: "var(--mint)",
-      },
-      {
-        id: "pigmentation_dark_spots",
-        label: "Pigmentation / dark spots",
-        icon: "🎨",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "fine_lines",
-        label: "Fine lines",
-        icon: "🪞",
-        bg: "var(--sky)",
-      },
-      {
-        id: "large_pores",
-        label: "Large pores",
-        icon: "🔍",
-        bg: "white",
-      },
+      { id: "acne_breakouts", label: "Acne / breakouts", icon: "🌋", bg: "var(--rose)" },
+      { id: "redness", label: "Redness", icon: "🌹", bg: "var(--rose)" },
+      { id: "dryness", label: "Dryness", icon: "💧", bg: "var(--cream)" },
+      { id: "oiliness", label: "Oiliness", icon: "🧴", bg: "var(--mint)" },
+      { id: "pigmentation_dark_spots", label: "Pigmentation", icon: "🎨", bg: "var(--lavender)" },
+      { id: "fine_lines", label: "Fine lines", icon: "🪞", bg: "var(--sky)" },
+      { id: "large_pores", label: "Large pores", icon: "🔍", bg: "white" },
     ],
   },
 
@@ -140,31 +73,12 @@ export const skinQuizQuestions: QuizQuestion[] = [
   {
     id: "sensitivity",
     title: "How sensitive is your skin?",
-    subtitle: "We avoid stronger active ingredients when sensitivity is high.",
     type: "single",
     required: true,
     options: [
-      {
-        id: "very_sensitive",
-        label: "Very sensitive",
-        description: "Reacts often to products, weather, or stress",
-        icon: "🌸",
-        bg: "var(--rose)",
-      },
-      {
-        id: "sometimes_reacts",
-        label: "Sometimes reacts",
-        description: "Occasional flare-ups to specific ingredients",
-        icon: "🌼",
-        bg: "var(--cream)",
-      },
-      {
-        id: "not_sensitive",
-        label: "Not sensitive",
-        description: "I tolerate most products well",
-        icon: "🌿",
-        bg: "var(--mint)",
-      },
+      { id: "very_sensitive", label: "Very sensitive", icon: "🌸", bg: "var(--rose)" },
+      { id: "sometimes_reacts", label: "Sometimes reacts", icon: "🌼", bg: "var(--cream)" },
+      { id: "not_sensitive", label: "Not sensitive", icon: "🌿", bg: "var(--mint)" },
     ],
   },
 
@@ -172,32 +86,13 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // Current routine level. Drives plan complexity.
   {
     id: "routine_level",
-    title: "Do you currently use skincare products?",
-    subtitle: "We adjust how many steps your daily routine contains.",
+    title: "Do you use skincare?",
     type: "single",
     required: true,
     options: [
-      {
-        id: "regularly",
-        label: "Regularly",
-        description: "I have a daily routine I follow",
-        icon: "📅",
-        bg: "var(--mint)",
-      },
-      {
-        id: "sometimes",
-        label: "Sometimes",
-        description: "I use products on and off",
-        icon: "🗓️",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "no",
-        label: "No",
-        description: "I'm starting from scratch",
-        icon: "🌱",
-        bg: "var(--cream)",
-      },
+      { id: "regularly", label: "Regularly", icon: "📅", bg: "var(--mint)" },
+      { id: "sometimes", label: "Sometimes", icon: "🗓️", bg: "var(--lavender)" },
+      { id: "no", label: "No", icon: "🌱", bg: "var(--cream)" },
     ],
   },
 
@@ -205,39 +100,14 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // Breakout frequency. Boosts acne-safe / non-comedogenic products.
   {
     id: "breakout_frequency",
-    title: "How often do you get breakouts?",
-    subtitle: "Frequent breakouts shift the routine toward acne-safe formulations.",
+    title: "How often do you break out?",
     type: "single",
     required: true,
     options: [
-      {
-        id: "often",
-        label: "Often",
-        description: "Multiple times a month",
-        icon: "🌋",
-        bg: "var(--rose)",
-      },
-      {
-        id: "sometimes",
-        label: "Sometimes",
-        description: "Around my cycle or under stress",
-        icon: "🌗",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "rarely",
-        label: "Rarely",
-        description: "A few times a year at most",
-        icon: "🌤️",
-        bg: "var(--sky)",
-      },
-      {
-        id: "never",
-        label: "Never",
-        description: "I don't get breakouts",
-        icon: "🌿",
-        bg: "var(--mint)",
-      },
+      { id: "often", label: "Often", icon: "🌋", bg: "var(--rose)" },
+      { id: "sometimes", label: "Sometimes", icon: "🌗", bg: "var(--lavender)" },
+      { id: "rarely", label: "Rarely", icon: "🌤️", bg: "var(--sky)" },
+      { id: "never", label: "Never", icon: "🌿", bg: "var(--mint)" },
     ],
   },
 
@@ -245,32 +115,13 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // Daily environment. Adjusts antioxidant / SPF emphasis.
   {
     id: "daily_environment",
-    title: "How would you describe your daily environment?",
-    subtitle: "Pollution, sun, and indoor air affect which protective layers we recommend.",
+    title: "Your daily environment?",
     type: "single",
     required: true,
     options: [
-      {
-        id: "urban_pollution",
-        label: "Urban / polluted",
-        description: "City life, traffic, dust",
-        icon: "🏙️",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "mostly_indoors",
-        label: "Mostly indoors",
-        description: "Office, home, controlled climate",
-        icon: "🏠",
-        bg: "var(--cream)",
-      },
-      {
-        id: "sunny_outdoor",
-        label: "Sunny / outdoor",
-        description: "I spend lots of time in direct sun",
-        icon: "☀️",
-        bg: "var(--mint)",
-      },
+      { id: "urban_pollution", label: "Urban / polluted", icon: "🏙️", bg: "var(--lavender)" },
+      { id: "mostly_indoors", label: "Mostly indoors", icon: "🏠", bg: "var(--cream)" },
+      { id: "sunny_outdoor", label: "Sunny / outdoor", icon: "☀️", bg: "var(--mint)" },
     ],
   },
 
@@ -278,32 +129,13 @@ export const skinQuizQuestions: QuizQuestion[] = [
   // Sunscreen usage. Triggers SPF education + ensures SPF in routine.
   {
     id: "sunscreen_usage",
-    title: "Do you use sunscreen regularly?",
-    subtitle: "Daily SPF is the single most impactful step in any routine.",
+    title: "Do you use sunscreen?",
     type: "single",
     required: true,
     options: [
-      {
-        id: "daily",
-        label: "Daily",
-        description: "Year-round, every morning",
-        icon: "🛡️",
-        bg: "var(--mint)",
-      },
-      {
-        id: "sometimes",
-        label: "Sometimes",
-        description: "When I remember or on sunny days",
-        icon: "🌤️",
-        bg: "var(--lavender)",
-      },
-      {
-        id: "rarely_never",
-        label: "Rarely or never",
-        description: "Not yet part of my routine",
-        icon: "🌧️",
-        bg: "var(--rose)",
-      },
+      { id: "daily", label: "Daily", icon: "🛡️", bg: "var(--mint)" },
+      { id: "sometimes", label: "Sometimes", icon: "🌤️", bg: "var(--lavender)" },
+      { id: "rarely_never", label: "Rarely or never", icon: "🌧️", bg: "var(--rose)" },
     ],
   },
 ];

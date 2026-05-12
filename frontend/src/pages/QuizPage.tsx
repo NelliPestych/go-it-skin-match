@@ -128,12 +128,12 @@ export default function QuizPage() {
         />
       </div>
 
-      <div className="screen-pad relative" style={{ marginTop: 24 }}>
+      <div className="screen-pad relative" style={{ marginTop: 16 }}>
         <h1 className="h1" style={{ marginBottom: 12 }}>
           {question.title}
         </h1>
         {question.subtitle && (
-          <p className="body" style={{ marginBottom: 16 }}>
+          <p className="body" style={{ marginBottom: 12 }}>
             {question.subtitle}
           </p>
         )}
@@ -153,7 +153,7 @@ export default function QuizPage() {
         )}
       </div>
 
-      <div style={{ flex: 1, minHeight: 16 }} />
+      <div style={{ flex: 1, minHeight: 8 }} />
 
       <div className="screen-footer relative">
         <PillButton
