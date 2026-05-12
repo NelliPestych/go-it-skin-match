@@ -58,7 +58,7 @@ export const skinQuizQuestions: QuizQuestion[] = [
     required: true,
     options: [
       { id: "acne_breakouts", label: "Acne / breakouts", icon: "🌋", bg: "var(--rose)" },
-      { id: "redness", label: "Redness", icon: "🌹", bg: "var(--rose)" },
+      { id: "redness", label: "Redness", icon: "🌹", bg: "var(--lavender)" },
       { id: "dryness", label: "Dryness", icon: "💧", bg: "var(--cream)" },
       { id: "oiliness", label: "Oiliness", icon: "🧴", bg: "var(--mint)" },
       { id: "pigmentation_dark_spots", label: "Pigmentation", icon: "🎨", bg: "var(--lavender)" },
