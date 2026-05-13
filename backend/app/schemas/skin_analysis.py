@@ -31,12 +31,15 @@ Design choices:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.analysis import SkinFeatures
 from app.schemas.common import Level, SkinType
+
+
+_LEGACY_PROVIDER_LABEL = "legacy"
 
 
 def _utcnow() -> datetime:
@@ -95,4 +98,55 @@ class NormalizedSkinAnalysisResult(BaseModel):
             pigmentation_level=self.pigmentation_level,
             pores_score=self.pores_score,
             confidence_score=self.confidence_score,
+        )
+
+
+class AIMetrics(BaseModel):
+    """Extended AI signals exposed via `/analysis/{id}/details`.
+
+    Distinct from `SkinFeatures` (legacy 6-field shape) and from
+    `NormalizedSkinAnalysisResult` (full provider output): this is a
+    *view* on what's in `features_json` that's safe to send over the
+    wire for any scan — old or new.
+
+    Every metric beyond `provider` + `confidence_score` is optional
+    so a scan persisted *before* the provider abstraction landed
+    (only the 6 legacy `SkinFeatures` keys in `features_json`) still
+    round-trips through the details endpoint without errors.  The
+    sentinel `provider == "legacy"` lets the frontend label such
+    results clearly if it wants to.
+    """
+
+    model_config = ConfigDict()
+
+    provider: str
+    confidence_score: float = Field(ge=0.0, le=1.0)
+    oiliness: Optional[Level] = None
+    acne: Optional[Level] = None
+    fine_lines: Optional[Level] = None
+    texture: Optional[Level] = None
+    recommendation_signals: Optional[Dict[str, float]] = None
+    analyzed_at: Optional[datetime] = None
+
+    @classmethod
+    def from_features_json(cls, features_json: Optional[Mapping[str, Any]]) -> "AIMetrics":
+        """Build an `AIMetrics` view from a `SkinScan.features_json` dict.
+
+        Tolerant by design: missing keys are emitted as `None`, no
+        validation errors on the legacy shape.  `provider` defaults
+        to the `"legacy"` sentinel when absent.
+        """
+        features = features_json or {}
+        return cls(
+            provider=str(features.get("provider") or _LEGACY_PROVIDER_LABEL),
+            # `confidence_score` exists on both legacy and new shapes;
+            # default 0.0 only fires if the column was hand-seeded
+            # without it (defensive — should not happen in prod).
+            confidence_score=float(features.get("confidence_score", 0.0)),
+            oiliness=features.get("oiliness"),
+            acne=features.get("acne"),
+            fine_lines=features.get("fine_lines"),
+            texture=features.get("texture"),
+            recommendation_signals=features.get("recommendation_signals"),
+            analyzed_at=features.get("analyzed_at"),
         )
