@@ -27,11 +27,12 @@ from typing import Optional, Tuple
 
 from fastapi import HTTPException, UploadFile, status
 
-from app.ai.pipeline import get_analyzer
+from app.ai.providers import SkinAnalysisProvider, get_skin_analysis_provider
 from app.core.config import settings
 from app.models.skin_scan import SkinScan
 from app.repositories.scan_repo import SkinScanRepository
 from app.schemas.analysis import SkinFeatures
+from app.schemas.skin_analysis import NormalizedSkinAnalysisResult
 
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
@@ -39,9 +40,16 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 class AnalysisService:
-    def __init__(self, scan_repo: SkinScanRepository):
+    def __init__(
+        self,
+        scan_repo: SkinScanRepository,
+        provider: Optional[SkinAnalysisProvider] = None,
+    ):
         self.scan_repo = scan_repo
-        self.analyzer = get_analyzer()
+        # Provider is the outermost AI extension point — local
+        # heuristic today, mock / real Haut.AI later.  Tests inject
+        # a stub; runtime resolves via the env-driven factory.
+        self.provider = provider or get_skin_analysis_provider()
 
     def _validate_upload(self, upload: UploadFile, contents: bytes) -> str:
         if upload.content_type not in ALLOWED_CONTENT_TYPES:
@@ -74,22 +82,37 @@ class AnalysisService:
         target.write_bytes(contents)
         return str(target)
 
-    def analyze(self, user_id: int, upload: UploadFile, contents: bytes) -> Tuple[SkinScan, SkinFeatures]:
-        suffix = self._validate_upload(upload, contents)
-        image_path = self._persist(contents, suffix)
+    def _run_provider(
+        self,
+        front: bytes,
+        left: Optional[bytes] = None,
+        right: Optional[bytes] = None,
+    ) -> NormalizedSkinAnalysisResult:
+        """Run the configured provider and translate analyzer-raised
+        `ValueError` into a 422 — the endpoint layer doesn't need to
+        know about either type."""
         try:
-            features = self.analyzer.analyze(contents)
+            return self.provider.analyze(front, left=left, right=right)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(exc),
             ) from exc
+
+    def analyze(self, user_id: int, upload: UploadFile, contents: bytes) -> Tuple[SkinScan, SkinFeatures]:
+        suffix = self._validate_upload(upload, contents)
+        image_path = self._persist(contents, suffix)
+        result = self._run_provider(contents)
+        # Persist the FULL normalized result in `features_json` —
+        # downstream readers tug at the legacy keys at the top level
+        # (skin_type, redness_level, …) which are preserved verbatim,
+        # so backward compat holds without branching.
         scan = self.scan_repo.create(
             user_id=user_id,
             image_path=image_path,
-            features=features.model_dump(mode="json"),
+            features=result.model_dump(mode="json"),
         )
-        return scan, features
+        return scan, result.to_skin_features()
 
     def analyze_multi(
         self,
@@ -125,20 +148,18 @@ class AnalysisService:
             right_suffix = self._validate_upload(right_upload, right_contents)
             right_path = self._persist(right_contents, right_suffix)
 
-        try:
-            features = self.analyzer.analyze(front_contents)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=str(exc),
-            ) from exc
+        # Pass all three pose images to the provider — `LocalHeuristic`
+        # ignores `left` / `right`, but a future remote provider
+        # (Haut.AI) may run multi-angle analysis without changing this
+        # call site.
+        result = self._run_provider(front_contents, left=left_contents, right=right_contents)
 
         scan = self.scan_repo.create(
             user_id=user_id,
             image_path=front_path,
-            features=features.model_dump(mode="json"),
+            features=result.model_dump(mode="json"),
             image_front_path=front_path,
             image_left_path=left_path,
             image_right_path=right_path,
         )
-        return scan, features
+        return scan, result.to_skin_features()
