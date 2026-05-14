@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     ai_analyzer: str = "heuristic"
     ai_model_path: str = "./app/ai/models/skin_model.onnx"
 
+    # Top-level skin analysis provider selector. Drives the
+    # `SkinAnalysisProvider` factory in `app/ai/providers/factory.py`.
+    # `ai_analyzer` above stays as a sub-lever for the *local*
+    # provider (heuristic | onnx); the two are intentionally separate
+    # concerns (provider routing vs local-impl choice).
+    skin_analysis_provider: str = "local"
+
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 1440
 

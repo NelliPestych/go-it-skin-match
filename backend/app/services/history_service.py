@@ -21,6 +21,7 @@ from app.schemas.history import AnalysisDetails, AnalysisHistoryItem
 from app.schemas.plan import BeautyPlan
 from app.schemas.product import ProductRead
 from app.schemas.recommendation import RecommendationItem
+from app.schemas.skin_analysis import AIMetrics
 
 
 class HistoryService:
@@ -77,6 +78,10 @@ class HistoryService:
             analysis_id=scan.id,
             created_at=scan.created_at,
             features=features,
+            # AIMetrics is tolerant of legacy shapes — see
+            # `AIMetrics.from_features_json`.  Old scans surface as
+            # `provider == "legacy"` with the extended fields null.
+            ai_metrics=AIMetrics.from_features_json(scan.features_json),
             quiz_answers=quiz.answers_json if quiz else None,
             recommendations=reco_items,
             plan=plan_obj,
