@@ -1408,6 +1408,303 @@ select {
 }
 
 /* =========================================================
+   AI Skin Report — summary + profile + focus + insights
+   ========================================================= */
+
+/* Subtle pill that sits inside the hero next to the confidence tier.
+   Deliberately small / low-contrast: confidence should *inform*, not
+   shout.  Variants tint the dot, never the whole pill, so the row
+   reads as one elegant unit instead of a stack of status badges. */
+.ai-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  backdrop-filter: blur(6px);
+}
+
+.ai-confidence .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--mint-accent);
+  flex-shrink: 0;
+}
+
+.ai-confidence[data-tier="Medium"] .dot {
+  background: var(--cream-accent);
+}
+
+.ai-confidence[data-tier="Low"] .dot {
+  background: var(--text-40);
+}
+
+.ai-confidence .sep {
+  color: var(--text-30);
+}
+
+.ai-confidence .source {
+  color: var(--text-60);
+  font-weight: 500;
+}
+
+/* Short reassuring tagline below the hero headline. */
+.ai-tagline {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-60);
+  margin: 4px 0 14px;
+}
+
+/* Skin profile grid — 2 columns of compact metric rows.  Each row is
+   a small card with a label / value header and a thin meter bar.
+   Stays light-weight so the page never feels like a clinical dashboard. */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.profile-row {
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-row .row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-row .row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.1px;
+}
+
+.profile-row .row-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-60);
+}
+
+.profile-row .meter-track {
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.06);
+  overflow: hidden;
+}
+
+.profile-row .meter-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width 0.6s ease;
+}
+
+.profile-row[data-tone="rose"] .meter-fill {
+  background: var(--rose-accent);
+}
+.profile-row[data-tone="mint"] .meter-fill {
+  background: var(--mint-accent);
+}
+.profile-row[data-tone="cream"] .meter-fill {
+  background: var(--cream-accent);
+}
+.profile-row[data-tone="lavender"] .meter-fill {
+  background: var(--lavender-accent);
+}
+.profile-row[data-tone="sky"] .meter-fill {
+  background: var(--sky-accent);
+}
+.profile-row[data-tone="peach"] .meter-fill {
+  background: var(--peach);
+}
+
+/* Focus areas — the headline takeaway.  Wrapped in a soft hero card
+   so they feel like the report's primary action, not a chip strip.
+   Cream → rose gradient mirrors the top hero for visual continuity. */
+.focus-card {
+  background: linear-gradient(135deg, var(--cream) 0%, var(--rose) 100%);
+  border-radius: var(--r-lg);
+  padding: 22px 22px 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.focus-card::before {
+  content: "";
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(28px);
+  border-radius: var(--r-pill);
+  top: -40px;
+  right: -40px;
+  pointer-events: none;
+}
+
+.focus-card-head {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.focus-card-head .eyebrow {
+  color: var(--text-50);
+}
+
+.focus-card-head h3 {
+  margin: 6px 0 0;
+  font-family: "Playfair Display", serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.focus-card-head p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-60);
+  line-height: 17px;
+}
+
+.focus-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  position: relative;
+}
+
+.focus-chips-lg {
+  gap: 10px;
+}
+
+.focus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.focus-chip-lg {
+  padding: 10px 16px;
+  font-size: 13px;
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04);
+}
+
+.focus-chip .focus-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--peach);
+}
+
+.focus-chip-lg .focus-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Soft "Show more" toggle below the metric grid — pill-shaped, low
+   contrast, no urgency.  Sits naturally inside the profile section. */
+.show-more-btn {
+  margin: 12px auto 0;
+  display: block;
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-60);
+  letter-spacing: 0.2px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.show-more-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text);
+}
+
+/* Personalized insight cards — small, friendly, warm tone. */
+.insight-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.insight-card + .insight-card {
+  margin-top: 10px;
+}
+
+.insight-card .insight-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.insight-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text);
+}
+
+/* Slim eyebrow for sub-sections inside the results screen. */
+.subsection-head {
+  margin-bottom: 12px;
+}
+
+.subsection-head .eyebrow {
+  color: var(--text-50);
+}
+
+.subsection-head h3 {
+  margin: 4px 0 0;
+  font-family: "Playfair Display", serif;
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 26px;
+}
+
+.subsection-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-50);
+  line-height: 17px;
+}
+
+/* =========================================================
    Loading state for results page
    ========================================================= */
 

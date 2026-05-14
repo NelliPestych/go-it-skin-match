@@ -114,10 +114,30 @@ export interface AnalysisHistoryItem {
   top_products: string[];
 }
 
+/** Extended AI signals returned alongside the legacy `features` block
+ *  on `/analysis/{id}/details`.  Mirrors the backend `AIMetrics` schema.
+ *
+ *  Every field beyond `provider` + `confidence_score` is optional so a
+ *  scan persisted before the provider abstraction landed still
+ *  round-trips through the endpoint without errors.  The sentinel
+ *  `provider === "legacy"` lets the UI render the basic, pre-provider
+ *  layout without leaking internal provider names. */
+export interface AIMetricsView {
+  provider: string;
+  confidence_score: number;
+  oiliness?: Level | null;
+  acne?: Level | null;
+  fine_lines?: Level | null;
+  texture?: Level | null;
+  recommendation_signals?: Record<string, number> | null;
+  analyzed_at?: string | null;
+}
+
 export interface AnalysisDetails {
   analysis_id: number;
   created_at: string;
   features: SkinFeatures;
+  ai_metrics?: AIMetricsView | null;
   quiz_answers?: Record<string, unknown> | null;
   recommendations: RecommendationItem[];
   plan?: BeautyPlan | null;
