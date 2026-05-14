@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
+import {
+  buildFocusAreas,
+  buildInsights,
+  buildSkinProfile,
+  confidenceLabel,
+  DEFAULT_PROFILE_METRIC_COUNT,
+  displayProviderLabel,
+  recommendationTagline,
+} from "../lib/aiReport";
 import { api } from "../services/api";
-import type { BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
+import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
 
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
@@ -16,24 +25,12 @@ const PRODUCT_EMOJI: Record<string, string> = {
   treatment: "✨",
 };
 
-function levelToPercent(level?: string): number {
-  if (level === "high") return 85;
-  if (level === "medium") return 60;
-  if (level === "low") return 30;
-  return 50;
-}
-
-/** Build chips like "Mild Redness", "Hydrated", from raw features. */
-function featureChips(f: SkinFeatures): string[] {
-  const chips: string[] = [];
-  if (f.redness_level === "high") chips.push("High Redness");
-  else if (f.redness_level === "medium") chips.push("Mild Redness");
-  if (f.hydration_level === "low") chips.push("Dehydrated");
-  else if (f.hydration_level === "high") chips.push("Hydrated");
-  if (f.pigmentation_level === "high") chips.push("Pigmentation");
-  if (f.pores_score > 0.6) chips.push("Visible Pores");
-  if (chips.length === 0) chips.push("Balanced");
-  return chips;
+/** Pick the most relevant confidence score: prefer the provider-stamped
+ *  `ai_metrics.confidence_score` when present, otherwise fall back to
+ *  the legacy `features.confidence_score`. */
+function pickConfidence(features: SkinFeatures, metrics: AIMetricsView | null | undefined): number {
+  if (metrics && typeof metrics.confidence_score === "number") return metrics.confidence_score;
+  return features.confidence_score;
 }
 
 export default function ResultsPage() {
@@ -43,6 +40,8 @@ export default function ResultsPage() {
   const [recos, setRecos] = useState<RecommendationItem[] | null>(null);
   const [plan, setPlan] = useState<BeautyPlan | null>(null);
   const [features, setFeatures] = useState<SkinFeatures | null>(null);
+  const [aiMetrics, setAiMetrics] = useState<AIMetricsView | null>(null);
+  const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,12 +49,10 @@ export default function ResultsPage() {
     let cancelled = false;
     (async () => {
       try {
-        // Single round-trip: details endpoint returns features + recos +
-        // plan in one shape, and works for both fresh analyses (where
-        // /quiz/submit eagerly persists everything) and historical ones.
         const d = await api.details(id);
         if (cancelled) return;
         setFeatures(d.features);
+        setAiMetrics(d.ai_metrics ?? null);
         setRecos(d.recommendations);
         setPlan(d.plan ?? null);
       } catch (err) {
@@ -66,6 +63,22 @@ export default function ResultsPage() {
       cancelled = true;
     };
   }, [id]);
+
+  // Derived view data — keep the render tree thin and memoize so we
+  // don't recompute the profile / focus / insights on every keystroke
+  // / interaction inside child components later.
+  const profile = useMemo(
+    () => (features ? buildSkinProfile(features, aiMetrics) : []),
+    [features, aiMetrics],
+  );
+  const focusAreas = useMemo(
+    () => (features ? buildFocusAreas(features, aiMetrics) : []),
+    [features, aiMetrics],
+  );
+  const insights = useMemo(
+    () => (features ? buildInsights(features, aiMetrics) : []),
+    [features, aiMetrics],
+  );
 
   if (error) {
     return (
@@ -96,8 +109,13 @@ export default function ResultsPage() {
     );
   }
 
-  const hydration = levelToPercent(features.hydration_level);
-  const chips = featureChips(features);
+  const tier = confidenceLabel(pickConfidence(features, aiMetrics));
+  const source = displayProviderLabel(aiMetrics);
+  const recoTagline = recommendationTagline(focusAreas);
+  const visibleProfile = showAllMetrics
+    ? profile
+    : profile.slice(0, DEFAULT_PROFILE_METRIC_COUNT);
+  const hasHiddenMetrics = profile.length > DEFAULT_PROFILE_METRIC_COUNT;
 
   return (
     <div className="screen relative" style={{ background: "var(--bg-results)" }}>
@@ -114,7 +132,7 @@ export default function ResultsPage() {
           </svg>
         </IconButton>
         <div className="app-header-center">
-          <span className="eyebrow">Analysis Complete</span>
+          <span className="eyebrow">Your AI Skin Report</span>
           <div className="divider" style={{ background: "var(--peach)" }} />
         </div>
         <IconButton onClick={() => navigate("/history")} aria-label="My results">
@@ -122,42 +140,124 @@ export default function ResultsPage() {
         </IconButton>
       </div>
 
+      {/* Hero + AI summary fusion — keep the original blob aesthetic
+          and the capitalized skin type heading, but layer the report
+          framing, the cautious tagline and the confidence pill on top.
+          The hero now reads as the *summary card* of the report,
+          rather than a generic title block. */}
       <div className="results-hero relative">
         <div className="relative">
           <div className="eyebrow" style={{ marginBottom: 8 }}>
-            Your Skin Analysis
+            Your AI Skin Report
           </div>
           <h1 style={{ textTransform: "capitalize" }}>{features.skin_type}</h1>
-          <div className="chips">
-            {chips.map((c) => (
-              <span className="chip" key={c}>
-                {c}
-              </span>
-            ))}
-          </div>
-          <div className="results-meter">
-            <div className="icon-circle">💧</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span className="results-meter-label">Hydration Level</span>
-                <span className="results-meter-label">{hydration}%</span>
-              </div>
-              <div className="meter-track">
-                <div className="meter-fill" style={{ width: `${hydration}%` }} />
-              </div>
-            </div>
-          </div>
-          <div className="caption" style={{ marginTop: 12, color: "var(--text-50)" }}>
-            AI confidence: {Math.round(features.confidence_score * 100)}%
-          </div>
+          <p className="ai-tagline">
+            Based on your scan and quiz answers, we built a personalized routine for your skin.
+          </p>
+          <span
+            className="ai-confidence"
+            data-tier={tier}
+            aria-label={`AI confidence ${tier}, ${source}`}
+          >
+            <span className="dot" aria-hidden="true" />
+            <span>AI confidence: {tier}</span>
+            <span className="sep" aria-hidden="true">·</span>
+            <span className="source">{source}</span>
+          </span>
         </div>
       </div>
 
+      {/* Focus areas — the headline takeaway of the whole report.
+          Promoted above the metric grid and wrapped in a soft hero
+          card so the user reads the *what to do* before the *what
+          we saw*.  Larger chips, generous padding, warm gradient. */}
+      <section className="section relative">
+        <div className="focus-card">
+          <div className="focus-card-head">
+            <span className="eyebrow">What your routine should focus on</span>
+            <h3>Your skin's priorities right now</h3>
+            <p>A short, actionable map — the rest of the report explains the why.</p>
+          </div>
+          <div className="focus-chips focus-chips-lg" data-testid="focus-areas">
+            {focusAreas.map((area) => (
+              <span className="focus-chip focus-chip-lg" key={area}>
+                <span className="focus-dot" aria-hidden="true" />
+                {area}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Skin profile — 2-column metric grid.  Sorted by priority so
+          the most informative rows render first.  When the full set
+          would crowd the page (>5 metrics) we collapse the tail
+          behind a soft "Show more" toggle — the page stays calm and
+          consumer-friendly rather than dashboard-y.  Legacy mode
+          shows just the 4 legacy rows; AI-powered mode adds extended
+          metrics as available. */}
+      <section className="section relative">
+        <div className="subsection-head">
+          <span className="eyebrow">Skin profile</span>
+          <h3>The signals we picked up</h3>
+          <p>A snapshot of how each area is reading right now.</p>
+        </div>
+        <div className="profile-grid" data-testid="profile-grid">
+          {visibleProfile.map((row) => (
+            <div
+              key={row.id}
+              className="profile-row"
+              data-tone={row.tone}
+              data-metric={row.id}
+            >
+              <div className="row-head">
+                <span className="row-label">{row.label}</span>
+                <span className="row-value">{row.valueLabel}</span>
+              </div>
+              <div className="meter-track">
+                <div className="meter-fill" style={{ width: `${row.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        {hasHiddenMetrics && (
+          <button
+            type="button"
+            className="show-more-btn"
+            onClick={() => setShowAllMetrics((v) => !v)}
+            aria-expanded={showAllMetrics}
+          >
+            {showAllMetrics
+              ? "Show fewer"
+              : `Show ${profile.length - DEFAULT_PROFILE_METRIC_COUNT} more`}
+          </button>
+        )}
+      </section>
+
+      {/* Personalized insights — 2–3 hedged, friendly sentences. */}
+      <section className="section relative">
+        <div className="subsection-head">
+          <span className="eyebrow">Personalized insights</span>
+          <h3>What this may mean for you</h3>
+        </div>
+        {insights.map((line, idx) => (
+          <div className="insight-card" key={idx}>
+            <div className="insight-icon" aria-hidden="true">
+              ✨
+            </div>
+            <p>{line}</p>
+          </div>
+        ))}
+      </section>
+
+      {/* Recommendations — keep the existing horizontal product row;
+          improve the lead-in copy so the user sees the link between
+          their AI focus areas and the picks. */}
       <section className="section relative">
         <div className="section-head">
           <div className="lead">
             <h2 className="h2">Recommended</h2>
-            <p>Curated for your specific profile</p>
+            <p>{recoTagline}</p>
           </div>
           <span className="see-all">See All</span>
         </div>

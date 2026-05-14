@@ -345,6 +345,46 @@ the heuristic implementation can be replaced by a trained CNN
 (MobileNet, EfficientNet, or a fine-tuned transformer) without
 touching the service or API layers.
 
+### AI Skin Report on the ResultsPage
+
+The provider abstraction (`local`, `mock_haut`, …) can return a
+normalized superset of `SkinFeatures` — `oiliness`, `acne`,
+`fine_lines`, `texture`, `recommendation_signals`, `confidence_score`,
+`provider`, `analyzed_at`. `/analysis/{id}/details` exposes those as
+an optional `ai_metrics` sidecar alongside the legacy `features`
+block, so old scans keep working and new scans surface the richer
+signals.
+
+The frontend `ResultsPage` reads both:
+
+- **Hero summary** — keeps the original skin-type heading and blob
+  aesthetic; adds a confidence pill (High / Medium / Low) and a
+  user-facing source label (*AI-powered analysis* or *Basic analysis*).
+  Internal provider names like `mock_haut` are never shown.
+- **Skin profile** — 2-column metric grid driven by legacy features
+  (hydration / redness / pigmentation / pores) plus, when present,
+  the extended metrics from `ai_metrics`.
+- **Focus areas** — 2–4 actionable chips (*Oil control*, *Hydration
+  support*, *Barrier support*, *Texture smoothing*, *Pore care*,
+  *Breakout support*, *Tone balance*, *Daily SPF support*) ranked
+  by signal strength.
+- **Personalized insights** — 2–3 cautious, hedged sentences ("may",
+  "suggests", "can help") — never diagnostic.
+- **Recommendations** — existing product cards, with a tagline that
+  ties the picks back to the top focus areas.
+
+Legacy fallback: when `ai_metrics` is missing or its
+`provider === "legacy"`, the page renders just the legacy profile,
+shows *Basic analysis*, and hides extended metric rows. Final product
+recommendations still combine image-derived metrics with quiz answers
+exactly as before — the AI report is purely a presentation layer.
+
+Pure helpers live in
+[`frontend/src/lib/aiReport.ts`](frontend/src/lib/aiReport.ts) and
+are covered by [`aiReport.test.ts`](frontend/src/lib/aiReport.test.ts);
+the page itself is covered by
+[`ResultsPage.test.tsx`](frontend/src/pages/ResultsPage.test.tsx).
+
 ---
 
 ## 📸 Smart Camera capture
