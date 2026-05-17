@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,6 +40,22 @@ class Settings(BaseSettings):
     # provider (heuristic | onnx); the two are intentionally separate
     # concerns (provider routing vs local-impl choice).
     skin_analysis_provider: str = "local"
+
+    # Optional fallback when the primary provider fails at request
+    # time (network / 5xx / auth).  Restricted at factory time to
+    # `local` or `mock_haut` — pointing back at `haut_ai` would
+    # create a loop and is rejected loudly.
+    skin_analysis_fallback_provider: Optional[str] = None
+
+    # ── Haut.AI provider config ──────────────────────────────────────
+    # Only consulted when `SKIN_ANALYSIS_PROVIDER=haut_ai`.  The key
+    # is intentionally `Optional` so importing settings never crashes
+    # on dev machines that don't ship credentials — the provider
+    # constructor enforces presence at construction time and raises
+    # `HautAIConfigError` if missing.
+    haut_ai_api_key: Optional[str] = None
+    haut_ai_base_url: str = "https://api.haut.ai"
+    haut_ai_timeout_seconds: float = 30.0
 
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 1440
