@@ -385,6 +385,105 @@ are covered by [`aiReport.test.ts`](frontend/src/lib/aiReport.test.ts);
 the page itself is covered by
 [`ResultsPage.test.tsx`](frontend/src/pages/ResultsPage.test.tsx).
 
+### Real Haut.AI provider
+
+`SKIN_ANALYSIS_PROVIDER` switches the analyzer at runtime — no code
+change needed to flip a Railway deploy between the local heuristic, the
+deterministic mock, and the real third-party AI:
+
+| value         | provider                       | when to use                                                                                  |
+| ------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `local`       | OpenCV heuristic (default)     | Local dev with no network. Cheap, deterministic, single-image only.                          |
+| `mock_haut`   | `MockHautAIProvider`           | Demos & dev. Deterministic per image hash, returns realistic AI-shaped metrics. **No API key required.** |
+| `haut_ai`     | `HautAIProvider` (real)        | Production. Calls the live Haut.AI HTTP API via `httpx.AsyncClient`. Requires `HAUT_AI_API_KEY`. |
+
+The real provider lives in
+[`backend/app/ai/providers/haut_ai.py`](backend/app/ai/providers/haut_ai.py)
+and is structured so the wire shape can be swapped without touching
+the rest of the system:
+
+- `_build_request_payload(...)` composes the outbound JSON
+  (`{"images": [{"pose": "front", "content_base64": "..."}]}` today).
+  Multi-image is already supported — `left` / `right` photos are
+  appended when present.
+- `_send_request(...)` is the **only** place the network is touched.
+  Uses `httpx.AsyncClient` inside an `asyncio.run(...)` so the public
+  `analyze()` method stays synchronous (no churn on the service
+  layer / FastAPI request handlers).
+- `_normalize_response(...)` projects the vendor payload onto
+  `NormalizedSkinAnalysisResult`.  Tolerant by design: every metric
+  is optional, accepts numeric 0–100 *or* 0–1 *or* `"low|medium|high"`
+  strings, and falls back to conservative schema defaults rather
+  than crashing on a missing field.
+
+The placeholder endpoint and field names live as constants at the top
+of `haut_ai.py` — when we get real Haut.AI credentials and docs, only
+those constants plus the three private methods above should need
+updating.
+
+#### Required environment
+
+| var                                 | required when               | notes                                                                                      |
+| ----------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| `SKIN_ANALYSIS_PROVIDER`            | always                      | `local` \| `mock_haut` \| `haut_ai`. Defaults to `local`.                                  |
+| `HAUT_AI_API_KEY`                   | when provider = `haut_ai`   | Missing key → `HautAIConfigError` raised loudly at factory time. Never logged.             |
+| `HAUT_AI_BASE_URL`                  | optional                    | Defaults to `https://api.haut.ai`. Override for staging / mock servers.                    |
+| `HAUT_AI_TIMEOUT_SECONDS`           | optional                    | Defaults to `30`. Applies to every Haut.AI HTTP call.                                      |
+| `SKIN_ANALYSIS_FALLBACK_PROVIDER`   | optional                    | `local` or `mock_haut`. **Cannot be `haut_ai`** (would loop) — rejected at factory time. |
+
+#### Fallback behaviour
+
+If `SKIN_ANALYSIS_FALLBACK_PROVIDER` is set and a Haut.AI request fails
+at runtime (auth, 4xx, 5xx, timeout, network), the configured fallback
+provider runs and its result is returned with two extra keys on
+`raw_summary`:
+
+```json
+{
+  "fallback_used": true,
+  "original_provider": "haut_ai",
+  "original_provider_error": "Haut.AI server error (HTTP 503)"
+}
+```
+
+That way operators can spot fallback events in `features_json` without
+trawling logs. **Config errors (missing API key, invalid fallback
+name) never trigger the fallback** — they propagate so a deploy-time
+misconfig fails loudly instead of silently degrading the experience.
+
+#### Safety
+
+- API keys are read once at startup and never logged.
+- Raw provider payloads are **not** stored — `raw_summary` is limited
+  to `provider_request_id`, `model_version`, `received_metrics`,
+  `images_received`, `processing_time_ms`, plus the fallback markers.
+  No base64, no masks, no thumbnails.
+- The frontend only ever sees the normalized `ai_metrics` view; it has
+  no path to the raw vendor JSON.
+- In production, set `HAUT_AI_BASE_URL` to an HTTPS endpoint and store
+  `HAUT_AI_API_KEY` as a secret (Railway / 1Password / Doppler — never
+  in version control).
+
+#### Tests
+
+`backend/app/tests/ai/test_providers_haut_ai.py` covers:
+
+- construction-time config errors (missing key, looping fallback),
+- request payload shape (endpoint, auth header, base64 image list),
+- normalization across numeric + categorical responses,
+- tolerance to missing optional metrics,
+- error classification (401/403 → auth, 4xx → request, 5xx →
+  server, timeout → server, invalid JSON → request),
+- the fallback contract (request-time errors only, `raw_summary`
+  annotation present),
+- `raw_summary` discipline (no base64, no `images` key, no full
+  vendor body),
+- factory routing (`haut_ai`, fallback resolution, rejection of
+  `haut_ai` as its own fallback and of unknown fallback names).
+
+A single live integration test (`test_live_haut_ai_smoke`) opts in via
+`HAUT_AI_API_KEY` in the environment; the normal test suite skips it.
+
 ---
 
 ## 📸 Smart Camera capture
