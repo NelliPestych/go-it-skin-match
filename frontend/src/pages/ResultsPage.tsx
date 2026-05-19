@@ -10,10 +10,29 @@ import {
   confidenceLabel,
   DEFAULT_PROFILE_METRIC_COUNT,
   displayProviderLabel,
+  type FocusArea,
   recommendationTagline,
 } from "../lib/aiReport";
 import { api } from "../services/api";
 import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
+
+type ResultsTab = "targets" | "picks" | "routine" | "profile" | "insights";
+type RoutinePeriod = "morning" | "evening";
+
+const tabId = (t: ResultsTab) => `results-tab-${t}`;
+const panelId = (t: ResultsTab) => `results-panel-${t}`;
+
+/** Pastel colors per tab — picked from the quiz palette so the
+ *  binder dividers feel continuous with the rest of the app. The
+ *  active tab passes its color down to the panel via a CSS variable
+ *  so the whole "file" (tab + content) looks like one sheet. */
+const TAB_COLOR: Record<ResultsTab, string> = {
+  profile: "var(--sky)",
+  targets: "var(--rose)",
+  picks: "var(--cream)",
+  routine: "var(--lavender)",
+  insights: "var(--mint)",
+};
 
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
@@ -25,9 +44,37 @@ const PRODUCT_EMOJI: Record<string, string> = {
   treatment: "✨",
 };
 
-/** Pick the most relevant confidence score: prefer the provider-stamped
- *  `ai_metrics.confidence_score` when present, otherwise fall back to
- *  the legacy `features.confidence_score`. */
+const CONFIDENCE_HINT =
+  "How confident the AI is in this analysis, based on your scan quality and quiz answers.";
+
+/** Substrings we look for inside each product's concerns / category /
+ *  reasons when filtering Picks by a Targets tap. Generous on synonyms
+ *  (e.g. "dehydration" matches via "hydrat") so we don't end up with
+ *  empty filtered states when the catalog phrasing drifts. */
+const TARGET_KEYWORDS: Record<FocusArea, string[]> = {
+  "Oil control": ["oil", "shine", "sebum"],
+  "Hydration support": ["hydrat", "moistur", "dry", "dehydrat"],
+  "Barrier support": ["barrier", "redness", "sensitive", "calm"],
+  "Texture smoothing": ["texture", "smooth", "fine line"],
+  "Pore care": ["pore"],
+  "Breakout support": ["acne", "breakout", "blemish", "spot"],
+  "Tone balance": ["pigment", "tone", "dark spot", "brighten"],
+  "Daily SPF support": ["sun", "spf", "uv"],
+};
+
+function matchesTarget(item: RecommendationItem, target: FocusArea): boolean {
+  const keys = TARGET_KEYWORDS[target] ?? [];
+  const haystack = [
+    item.product.category,
+    item.product.name,
+    ...item.product.concerns,
+    ...item.reasons,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return keys.some((k) => haystack.includes(k));
+}
+
 function pickConfidence(features: SkinFeatures, metrics: AIMetricsView | null | undefined): number {
   if (metrics && typeof metrics.confidence_score === "number") return metrics.confidence_score;
   return features.confidence_score;
@@ -41,8 +88,13 @@ export default function ResultsPage() {
   const [plan, setPlan] = useState<BeautyPlan | null>(null);
   const [features, setFeatures] = useState<SkinFeatures | null>(null);
   const [aiMetrics, setAiMetrics] = useState<AIMetricsView | null>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [showAllMetrics, setShowAllMetrics] = useState(false);
+  const [tab, setTab] = useState<ResultsTab>("profile");
+  const [routinePeriod, setRoutinePeriod] = useState<RoutinePeriod>("morning");
+  const [activeTarget, setActiveTarget] = useState<FocusArea | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [metersIn, setMetersIn] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -55,6 +107,7 @@ export default function ResultsPage() {
         setAiMetrics(d.ai_metrics ?? null);
         setRecos(d.recommendations);
         setPlan(d.plan ?? null);
+        setCreatedAt(d.created_at ?? null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
       }
@@ -64,9 +117,14 @@ export default function ResultsPage() {
     };
   }, [id]);
 
-  // Derived view data — keep the render tree thin and memoize so we
-  // don't recompute the profile / focus / insights on every keystroke
-  // / interaction inside child components later.
+  // Trigger meter / score-ring entrance animations one frame after the
+  // metrics paint so the fills sweep from 0 to their target widths.
+  useEffect(() => {
+    if (!features) return;
+    const t = requestAnimationFrame(() => setMetersIn(true));
+    return () => cancelAnimationFrame(t);
+  }, [features]);
+
   const profile = useMemo(
     () => (features ? buildSkinProfile(features, aiMetrics) : []),
     [features, aiMetrics],
@@ -100,245 +158,374 @@ export default function ResultsPage() {
     return (
       <div className="screen" style={{ background: "var(--bg-results)" }}>
         <div className="screen-pad" style={{ paddingTop: 24 }}>
-          <div className="skeleton" style={{ height: 200, marginBottom: 24 }} />
-          <div className="skeleton" style={{ height: 32, marginBottom: 12, width: "60%" }} />
-          <div className="skeleton" style={{ height: 240, marginBottom: 24 }} />
-          <div className="skeleton" style={{ height: 200 }} />
+          <div className="skeleton" style={{ height: 140, marginBottom: 16 }} />
+          <div className="skeleton" style={{ height: 40, marginBottom: 16 }} />
+          <div className="skeleton" style={{ height: 240, marginBottom: 16 }} />
+          <div className="skeleton" style={{ height: 180 }} />
         </div>
       </div>
     );
   }
 
-  const tier = confidenceLabel(pickConfidence(features, aiMetrics));
+  const confidence = pickConfidence(features, aiMetrics);
+  const tier = confidenceLabel(confidence);
+  const score = Math.round(Math.max(0, Math.min(1, confidence)) * 100);
   const source = displayProviderLabel(aiMetrics);
   const recoTagline = recommendationTagline(focusAreas);
+  const filteredRecos = activeTarget
+    ? recos.filter((item) => matchesTarget(item, activeTarget))
+    : recos;
   const visibleProfile = showAllMetrics
     ? profile
     : profile.slice(0, DEFAULT_PROFILE_METRIC_COUNT);
   const hasHiddenMetrics = profile.length > DEFAULT_PROFILE_METRIC_COUNT;
+  const hasPlan = Boolean(plan);
+  const routineSteps =
+    plan && routinePeriod === "morning" ? plan.daily.morning : plan?.daily.evening ?? [];
+  const scanDate = createdAt
+    ? new Date(createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+  // Ring geometry: circle radius 34 → circumference ≈ 213.628. Pre-compute
+  // both so the entrance animation can interpolate from 0 to target.
+  const RING_C = 2 * Math.PI * 34;
+  const ringTarget = RING_C * (1 - score / 100);
 
   return (
-    <div className="screen relative" style={{ background: "var(--bg-results)" }}>
-      <div className="blob rose-bottom-left" />
-      <div className="blob sky-mid-left" style={{ left: "auto", right: -120 }} />
-
-      <div
-        className="app-header relative"
-        style={{ background: "rgba(250,249,246,0.8)", backdropFilter: "blur(12px)" }}
-      >
+    <div className="screen results-v2" style={{ background: "var(--bg-results)" }}>
+      <div className="app-header app-header--flush">
         <IconButton onClick={() => navigate("/")} aria-label="Back">
           <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
             <path d="M7 1L1 7l6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </IconButton>
-        <div className="app-header-center">
-          <span className="eyebrow">Your AI Skin Report</span>
-          <div className="divider" style={{ background: "var(--peach)" }} />
-        </div>
+        <span className="results-eyebrow">Skin Report</span>
         <IconButton onClick={() => navigate("/history")} aria-label="My results">
           <span style={{ fontSize: 14 }}>≡</span>
         </IconButton>
       </div>
 
-      {/* Hero + AI summary fusion — keep the original blob aesthetic
-          and the capitalized skin type heading, but layer the report
-          framing, the cautious tagline and the confidence pill on top.
-          The hero now reads as the *summary card* of the report,
-          rather than a generic title block. */}
-      <div className="results-hero relative">
-        <div className="relative">
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
-            Your AI Skin Report
-          </div>
-          <h1 style={{ textTransform: "capitalize" }}>{features.skin_type}</h1>
-          <p className="ai-tagline">
-            Based on your scan and quiz answers, we built a personalized routine for your skin.
-          </p>
-          <span
-            className="ai-confidence"
-            data-tier={tier}
-            aria-label={`AI confidence ${tier}, ${source}`}
-          >
-            <span className="dot" aria-hidden="true" />
-            <span>AI confidence: {tier}</span>
-            <span className="sep" aria-hidden="true">·</span>
-            <span className="source">{source}</span>
-          </span>
-        </div>
-      </div>
-
-      {/* Focus areas — the headline takeaway of the whole report.
-          Promoted above the metric grid and wrapped in a soft hero
-          card so the user reads the *what to do* before the *what
-          we saw*.  Larger chips, generous padding, warm gradient. */}
-      <section className="section relative">
-        <div className="focus-card">
-          <div className="focus-card-head">
-            <span className="eyebrow">What your routine should focus on</span>
-            <h3>Your skin's priorities right now</h3>
-            <p>A short, actionable map — the rest of the report explains the why.</p>
-          </div>
-          <div className="focus-chips focus-chips-lg" data-testid="focus-areas">
-            {focusAreas.map((area) => (
-              <span className="focus-chip focus-chip-lg" key={area}>
-                <span className="focus-dot" aria-hidden="true" />
-                {area}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Skin profile — 2-column metric grid.  Sorted by priority so
-          the most informative rows render first.  When the full set
-          would crowd the page (>5 metrics) we collapse the tail
-          behind a soft "Show more" toggle — the page stays calm and
-          consumer-friendly rather than dashboard-y.  Legacy mode
-          shows just the 4 legacy rows; AI-powered mode adds extended
-          metrics as available. */}
-      <section className="section relative">
-        <div className="subsection-head">
-          <span className="eyebrow">Skin profile</span>
-          <h3>The signals we picked up</h3>
-          <p>A snapshot of how each area is reading right now.</p>
-        </div>
-        <div className="profile-grid" data-testid="profile-grid">
-          {visibleProfile.map((row) => (
+      <main
+        className="results-body"
+        style={{ ["--active-tab-bg" as string]: TAB_COLOR[tab] }}
+      >
+        <section className="results-summary">
+          <div className="results-summary-glow" aria-hidden="true" />
+          <div className="results-summary-row">
             <div
-              key={row.id}
-              className="profile-row"
-              data-tone={row.tone}
-              data-metric={row.id}
+              className="score-ring"
+              data-tier={tier}
+              role="img"
+              aria-label={`Scan score ${score} out of 100`}
+              title={CONFIDENCE_HINT}
             >
-              <div className="row-head">
-                <span className="row-label">{row.label}</span>
-                <span className="row-value">{row.valueLabel}</span>
+              <svg viewBox="0 0 80 80" width="80" height="80">
+                <defs>
+                  <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="var(--score-grad-from)" />
+                    <stop offset="100%" stopColor="var(--score-grad-to)" />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  className="score-ring-track"
+                  fill="none"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  className="score-ring-fill"
+                  fill="none"
+                  stroke="url(#scoreGrad)"
+                  strokeDasharray={RING_C}
+                  strokeDashoffset={metersIn ? ringTarget : RING_C}
+                  transform="rotate(-90 40 40)"
+                />
+              </svg>
+              <div className="score-ring-center">
+                <span className="score-ring-value">{score}</span>
+                <span className="score-ring-unit">/100</span>
               </div>
-              <div className="meter-track">
-                <div className="meter-fill" style={{ width: `${row.percent}%` }} />
-              </div>
+              <span className="score-ring-caption">AI Score</span>
             </div>
-          ))}
-        </div>
-        {hasHiddenMetrics && (
-          <button
-            type="button"
-            className="show-more-btn"
-            onClick={() => setShowAllMetrics((v) => !v)}
-            aria-expanded={showAllMetrics}
-          >
-            {showAllMetrics
-              ? "Show fewer"
-              : `Show ${profile.length - DEFAULT_PROFILE_METRIC_COUNT} more`}
-          </button>
-        )}
-      </section>
-
-      {/* Personalized insights — 2–3 hedged, friendly sentences. */}
-      <section className="section relative">
-        <div className="subsection-head">
-          <span className="eyebrow">Personalized insights</span>
-          <h3>What this may mean for you</h3>
-        </div>
-        {insights.map((line, idx) => (
-          <div className="insight-card" key={idx}>
-            <div className="insight-icon" aria-hidden="true">
-              ✨
+            <div className="results-summary-text">
+              <span className="results-summary-label">Your skin type</span>
+              <h1 className="results-title">{features.skin_type}</h1>
             </div>
-            <p>{line}</p>
           </div>
-        ))}
-      </section>
-
-      {/* Recommendations — keep the existing horizontal product row;
-          improve the lead-in copy so the user sees the link between
-          their AI focus areas and the picks. */}
-      <section className="section relative">
-        <div className="section-head">
-          <div className="lead">
-            <h2 className="h2">Recommended</h2>
-            <p>{recoTagline}</p>
-          </div>
-          <span className="see-all">See All</span>
-        </div>
-        {recos.length === 0 ? (
-          <p className="muted">No products matched your profile yet — try adjusting your concerns.</p>
-        ) : (
-          <div className="product-row">
-            {recos.map((item, idx) => (
-              <div className="product-card" key={item.product.id}>
-                <div className="image" style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}>
-                  <span>{PRODUCT_EMOJI[item.product.category] ?? "🧴"}</span>
-                </div>
-                <div>
-                  <div className="label">
-                    {item.product.brand} · {item.product.category}
-                  </div>
-                  <h3>{item.product.name}</h3>
-                  <ul className="reasons">
-                    {item.reasons.slice(0, 3).map((reason, i) => (
-                      <li key={i}>{reason}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="footer">
-                  <span className="price">${item.product.price.toFixed(2)}</span>
-                  <button className="add-btn" aria-label="Add">
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {plan && (
-        <section className="section relative">
-          <h2 className="h2" style={{ marginBottom: 16 }}>
-            Daily Beauty Plan
-          </h2>
-
-          <div className="routine-card">
-            <div className="routine-head">
-              <div className="icon">☀️</div>
-              <h4>Morning Routine</h4>
+          <div className="results-meta-row">
+            <div
+              className="results-meta"
+              data-tier={tier}
+              title={CONFIDENCE_HINT}
+              aria-label={`Confidence ${tier}, ${source}`}
+            >
+              <span className="results-meta-dot" aria-hidden="true" />
+              <span>Confidence: {tier}</span>
+              <span className="results-meta-sep" aria-hidden="true">·</span>
+              <span className="results-meta-source">{source}</span>
             </div>
-            <ul className="routine-list">
-              {plan.daily.morning.slice(0, 5).map((step) => (
-                <li key={`m-${step.order}`}>
-                  <span className="step-num">Step {step.order}</span>
-                  <div className="step-body">
-                    <h5>{step.product_name}</h5>
-                    <p>{step.instruction}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="routine-card evening">
-            <div className="routine-head">
-              <div className="icon">🌙</div>
-              <h4>Evening Routine</h4>
-            </div>
-            <ul className="routine-list">
-              {plan.daily.evening.slice(0, 5).map((step) => (
-                <li key={`e-${step.order}`}>
-                  <span className="step-num">Step {step.order}</span>
-                  <div className="step-body">
-                    <h5>{step.product_name}</h5>
-                    <p>{step.instruction}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {scanDate && (
+              <span className="results-meta-date">Scanned {scanDate}</span>
+            )}
           </div>
         </section>
-      )}
 
-      <div className="screen-footer relative">
-        <PillButton trailingIcon={<span>→</span>}>Shop My Selection</PillButton>
+        <div className="seg-tabs" role="tablist" aria-label="Report sections">
+          {(
+            [
+              { id: "profile" as const, label: "Profile" },
+              { id: "targets" as const, label: "Targets" },
+              { id: "picks" as const, label: "Picks" },
+              ...(hasPlan ? [{ id: "routine" as const, label: "Routine" }] : []),
+              { id: "insights" as const, label: "Insights" },
+            ]
+          ).map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              type="button"
+              className="seg-tab"
+              id={tabId(t.id)}
+              aria-selected={tab === t.id}
+              aria-controls={panelId(t.id)}
+              tabIndex={tab === t.id ? 0 : -1}
+              data-active={tab === t.id}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <section
+          className="tab-panel"
+          role="tabpanel"
+          id={panelId("targets")}
+          aria-labelledby={tabId("targets")}
+          hidden={tab !== "targets"}
+        >
+          <p className="targets-tag">
+            Tap a target to see picks that match it.
+          </p>
+          <ul className="targets-list" data-testid="focus-areas">
+            {focusAreas.map((area, idx) => (
+              <li key={area}>
+                <button
+                  type="button"
+                  className="targets-item"
+                  onClick={() => {
+                    setActiveTarget(area);
+                    setTab("picks");
+                  }}
+                >
+                  <span className="targets-index" aria-hidden="true">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span className="targets-label">{area}</span>
+                  <span className="targets-arrow" aria-hidden="true">→</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          className="tab-panel"
+          role="tabpanel"
+          id={panelId("picks")}
+          aria-labelledby={tabId("picks")}
+          aria-live="polite"
+          hidden={tab !== "picks"}
+        >
+          <div className="recos-head">
+            <h2 className="recos-title">Recommended</h2>
+            <button
+              type="button"
+              className="recos-link"
+              onClick={() => setActiveTarget(null)}
+              disabled={!activeTarget}
+            >
+              {activeTarget ? "Clear filter" : "See all"}
+            </button>
+          </div>
+          <p className="recos-tag">
+            {activeTarget ? `Picks for ${activeTarget.toLowerCase()}.` : recoTagline}
+          </p>
+          {activeTarget && (
+            <div className="picks-filter">
+              <span className="picks-filter-label">Filter:</span>
+              <span className="picks-filter-chip">
+                {activeTarget}
+                <button
+                  type="button"
+                  className="picks-filter-clear"
+                  onClick={() => setActiveTarget(null)}
+                  aria-label="Clear filter"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+          )}
+          {filteredRecos.length === 0 ? (
+            <p className="muted">
+              {activeTarget
+                ? `No picks match ${activeTarget.toLowerCase()} yet. Try another target.`
+                : "No products matched your profile yet — try adjusting your concerns."}
+            </p>
+          ) : (
+            <div className="reco-row">
+              {filteredRecos.map((item, idx) => (
+                <article className="reco-card" key={item.product.id}>
+                  <div
+                    className="reco-image"
+                    style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}
+                  >
+                    <span>{PRODUCT_EMOJI[item.product.category] ?? "🧴"}</span>
+                  </div>
+                  <div className="reco-meta">
+                    <span className="reco-brand">{item.product.brand}</span>
+                    <h3 className="reco-name">{item.product.name}</h3>
+                    {item.reasons[0] && (
+                      <span className="reco-why" title={item.reasons[0]}>
+                        Why: {item.reasons[0]}
+                      </span>
+                    )}
+                    <span className="reco-price">${item.product.price.toFixed(2)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {hasPlan && plan && (
+          <section
+            className="tab-panel"
+            role="tabpanel"
+            id={panelId("routine")}
+            aria-labelledby={tabId("routine")}
+            hidden={tab !== "routine"}
+          >
+            <div className="period-switch" role="tablist" aria-label="Time of day">
+              <button
+                type="button"
+                role="tab"
+                className="period-switch-btn"
+                aria-selected={routinePeriod === "morning"}
+                data-active={routinePeriod === "morning"}
+                onClick={() => setRoutinePeriod("morning")}
+              >
+                <span className="period-switch-icon" aria-hidden="true">☀</span>
+                Morning
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className="period-switch-btn"
+                aria-selected={routinePeriod === "evening"}
+                data-active={routinePeriod === "evening"}
+                onClick={() => setRoutinePeriod("evening")}
+              >
+                <span className="period-switch-icon" aria-hidden="true">☾</span>
+                Evening
+              </button>
+            </div>
+            <ol className="routine-steps">
+              {routineSteps.slice(0, 5).map((step) => (
+                <li key={`${routinePeriod}-${step.order}`}>
+                  <div className="routine-step-body">
+                    <span className="routine-step-name">{step.product_name}</span>
+                    <span className="routine-step-hint">{step.instruction}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        <section
+          className="tab-panel"
+          role="tabpanel"
+          id={panelId("profile")}
+          aria-labelledby={tabId("profile")}
+          hidden={tab !== "profile"}
+        >
+          <div className="profile-grid" data-testid="profile-grid">
+            {visibleProfile.map((row) => (
+              <div
+                key={row.id}
+                className="profile-row"
+                data-tone={row.tone}
+                data-metric={row.id}
+              >
+                <div className="row-head">
+                  <span className="row-label">{row.label}</span>
+                  <span className="row-value">{row.valueLabel}</span>
+                </div>
+                <div className="meter-track">
+                  <div
+                    className="meter-fill"
+                    style={{ width: `${metersIn ? row.percent : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {hasHiddenMetrics && (
+            <button
+              type="button"
+              className="show-more-btn"
+              onClick={() => setShowAllMetrics((v) => !v)}
+              aria-expanded={showAllMetrics}
+            >
+              {showAllMetrics
+                ? "Show fewer"
+                : `Show ${profile.length - DEFAULT_PROFILE_METRIC_COUNT} more`}
+            </button>
+          )}
+        </section>
+
+        <section
+          className="tab-panel"
+          role="tabpanel"
+          id={panelId("insights")}
+          aria-labelledby={tabId("insights")}
+          hidden={tab !== "insights"}
+        >
+          <ul className="insights-list">
+            {insights.map((line, idx) => (
+              <li key={idx} className="insights-item">
+                <span className="insights-bullet" aria-hidden="true" />
+                <p>{line}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className="results-bottom-spacer" aria-hidden="true" />
+      </main>
+
+      <div className="results-sticky">
+        <div className="results-saved" aria-hidden="true">
+          <span className="results-saved-check">✓</span> Saved to your history
+        </div>
+        <PillButton
+          trailingIcon={<span aria-hidden="true">→</span>}
+          onClick={() => {
+            setTab("picks");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          Shop My Selection
+        </PillButton>
       </div>
     </div>
   );
