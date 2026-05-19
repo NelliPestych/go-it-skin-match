@@ -83,7 +83,7 @@ describe("<ResultsPage />", () => {
 
     renderResults();
 
-    await screen.findByText(/AI confidence: High/i);
+    await screen.findByText(/Confidence: High/i);
 
     // Source label uses the user-facing wording, not the raw provider id.
     expect(screen.getByText(/AI-powered analysis/i)).toBeInTheDocument();
@@ -95,7 +95,10 @@ describe("<ResultsPage />", () => {
     expect(within(grid).getByText("Hydration")).toBeInTheDocument();
     expect(within(grid).getByText("Oiliness")).toBeInTheDocument();
 
-    // "Show more" reveals the rest of the metric block.
+    // Profile is not the default tab, so activate it before reaching
+    // for the Show-more button (which is hidden from the a11y tree
+    // when its panel is inactive).
+    fireEvent.click(screen.getByRole("tab", { name: /^Profile$/i }));
     const showMore = screen.getByRole("button", { name: /show \d+ more/i });
     fireEvent.click(showMore);
     expect(within(grid).getByText("Texture")).toBeInTheDocument();
@@ -120,7 +123,7 @@ describe("<ResultsPage />", () => {
     await screen.findByText(/Basic analysis/i);
 
     // Confidence tier maps 0.55 → Medium.
-    expect(screen.getByText(/AI confidence: Medium/i)).toBeInTheDocument();
+    expect(screen.getByText(/Confidence: Medium/i)).toBeInTheDocument();
 
     // No extended metric rows in legacy mode.
     const grid = screen.getByTestId("profile-grid");
@@ -148,7 +151,9 @@ describe("<ResultsPage />", () => {
     const focusChips = screen.getByTestId("focus-areas");
     expect(focusChips.children.length).toBeGreaterThanOrEqual(2);
 
-    // Recommendation tagline still resolves (no thrown error).
+    // The Recommended block now lives inside the Picks tab — activate
+    // it so the heading is part of the accessibility tree.
+    fireEvent.click(screen.getByRole("tab", { name: /^Picks$/i }));
     expect(screen.getByRole("heading", { name: /^Recommended$/ })).toBeInTheDocument();
   });
 
