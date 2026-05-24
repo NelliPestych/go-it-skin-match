@@ -622,6 +622,38 @@ select {
   text-transform: uppercase;
 }
 
+/* Quiz pages — fixed bottom CTA, same UX pattern as ResultsPage.
+   The screen reserves bottom padding so the last option-card never
+   sits under the floating CTA; a fade mask above the CTA softens
+   the boundary between scrolling content and the pinned button. */
+.quiz-screen {
+  padding-bottom: 120px;
+}
+
+.quiz-screen .screen-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--mobile-width);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.quiz-screen .screen-footer > * {
+  pointer-events: auto;
+}
+
+.quiz-screen .screen-footer::before {
+  content: "";
+  position: absolute;
+  inset: -80px 0 0 0;
+  background: linear-gradient(180deg, rgba(249, 247, 242, 0) 0%, var(--bg-cream) 55%);
+  pointer-events: none;
+  z-index: -1;
+}
+
 /* =========================================================
    Intro / landing screen — single-viewport layout
    ========================================================= */
