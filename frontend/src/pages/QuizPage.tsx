@@ -113,7 +113,7 @@ export default function QuizPage() {
   };
 
   return (
-    <div className="screen relative">
+    <div className="screen relative quiz-screen">
       <div className="blob rose-bottom-left" />
       <div className="blob lavender-top-right" />
       <div className="blob sky-mid-left" />
@@ -152,8 +152,6 @@ export default function QuizPage() {
           />
         )}
       </div>
-
-      <div style={{ flex: 1, minHeight: 8 }} />
 
       <div className="screen-footer relative">
         <PillButton

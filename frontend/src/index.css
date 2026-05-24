@@ -71,7 +71,12 @@ body,
 #root {
   margin: 0;
   padding: 0;
+  /* Dual-fallback: 100vh for browsers without dvh support, then
+     overridden by 100dvh where supported.  Dynamic viewport unit
+     prevents the page from "jumping" on iOS Safari when the
+     address bar shows/hides. */
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-cream);
 }
 
@@ -107,6 +112,7 @@ select {
   width: 100%;
   max-width: var(--mobile-width);
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   background: var(--bg-cream);
   position: relative;
@@ -123,6 +129,7 @@ select {
     box-shadow: 0 20px 60px rgba(60, 32, 50, 0.18);
     overflow: hidden;
     min-height: calc(100vh - 48px);
+    min-height: calc(100dvh - 48px);
   }
 }
 
@@ -130,6 +137,7 @@ select {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
 }
 
@@ -208,13 +216,13 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px var(--side-margin);
+  padding: max(24px, env(safe-area-inset-top)) var(--side-margin) 24px;
   position: relative;
 }
 
 .icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-pill);
   border: 1px solid var(--text);
   display: flex;
@@ -598,7 +606,7 @@ select {
    ========================================================= */
 
 .screen-footer {
-  padding: 12px var(--side-margin) 20px;
+  padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
   background: transparent;
   position: sticky;
   bottom: 0;
@@ -612,6 +620,38 @@ select {
   color: var(--text-40);
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+/* Quiz pages — fixed bottom CTA, same UX pattern as ResultsPage.
+   The screen reserves bottom padding so the last option-card never
+   sits under the floating CTA; a fade mask above the CTA softens
+   the boundary between scrolling content and the pinned button. */
+.quiz-screen {
+  padding-bottom: 120px;
+}
+
+.quiz-screen .screen-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--mobile-width);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.quiz-screen .screen-footer > * {
+  pointer-events: auto;
+}
+
+.quiz-screen .screen-footer::before {
+  content: "";
+  position: absolute;
+  inset: -80px 0 0 0;
+  background: linear-gradient(180deg, rgba(249, 247, 242, 0) 0%, var(--bg-cream) 55%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* =========================================================
@@ -633,7 +673,14 @@ select {
 .intro-hero {
   position: relative;
   margin: 8px var(--side-margin) 16px;
-  height: 380px;
+  /* Flex-grow so the hero absorbs free vertical space on tall
+     viewports (iPhone Pro Max, Pixel 8) instead of leaving a gap
+     above the CTA.  Floor keeps the face legible on small phones
+     (Galaxy S8 360x640, iPhone SE 375x667); ceiling stops the hero
+     from getting cartoonishly tall on iPad / desktop frames. */
+  flex: 1 1 auto;
+  min-height: 240px;
+  max-height: clamp(280px, 52dvh, 460px);
   border-radius: var(--r-2xl);
   overflow: hidden;
   /* Premium 3-layer gradient.  The face PNG now has a transparent
@@ -730,11 +777,12 @@ select {
 .intro-headline {
   font-family: "Playfair Display", serif;
   font-weight: 500;
-  font-size: 36px;
+  /* Fluid: 28px on 360px viewport → 36px from ~430px upward. */
+  font-size: clamp(28px, 8.4vw, 36px);
   line-height: 1.05;
   letter-spacing: -0.5px;
   color: var(--text);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 
 .intro-headline-em {
@@ -744,11 +792,11 @@ select {
 
 .intro-subhead {
   font-family: "Inter", sans-serif;
-  font-size: 14px;
+  font-size: clamp(13px, 3.6vw, 14px);
   line-height: 1.45;
   color: var(--text-60);
   margin: 0 auto;
-  max-width: 280px;
+  max-width: clamp(240px, 78vw, 320px);
 }
 
 /* Benefit chips ------------------------------------------------------
@@ -762,8 +810,10 @@ select {
   /* Tighter horizontal padding (16 px each side instead of the
      32 px --side-margin) buys us ~32 px of chip-row width so the
      three chips fit on a single row at 375 px viewport.  Wrap
-     stays enabled as a defensive fallback for smaller widths. */
-  padding: 10px 16px 6px;
+     stays enabled as a defensive fallback for smaller widths.
+     Vertical padding is fluid so the chip row breathes on tall
+     viewports without dropping the CTA off-screen on short ones. */
+  padding: clamp(6px, 1.6vh, 12px) 16px clamp(4px, 1vh, 8px);
   flex-wrap: wrap;
 }
 
@@ -789,7 +839,7 @@ select {
 
 /* Footer tweaks unique to the landing screen. */
 .intro-footer {
-  padding-bottom: 28px;
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
 
 /* =========================================================
@@ -800,6 +850,7 @@ select {
   background: #1a1a1a;
   color: white;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   overflow: hidden;
 }
@@ -807,6 +858,7 @@ select {
 .capture-screen .photo-stage {
   position: relative;
   height: 60vh;
+  height: 60dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -981,8 +1033,12 @@ select {
 }
 
 .analyzing-orbit {
-  width: 224px;
-  height: 224px;
+  /* Fluid: orbit shrinks below the original 224px on narrow phones
+     so the two concentric rings (-1 each side via ::before/::after)
+     stay inside the mobile frame at 360px. */
+  width: clamp(172px, 52vw, 200px);
+  aspect-ratio: 1 / 1;
+  height: auto;
   border: 1px solid var(--text);
   border-radius: var(--r-pill);
   margin: 24px auto;
@@ -992,7 +1048,7 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 64px;
+  font-size: clamp(48px, 14vw, 64px);
 }
 
 .analyzing-orbit::before,
@@ -1004,11 +1060,11 @@ select {
 }
 
 .analyzing-orbit::before {
-  inset: -32px;
+  inset: calc(-1 * clamp(20px, 6vw, 28px));
 }
 
 .analyzing-orbit::after {
-  inset: -64px;
+  inset: calc(-1 * clamp(36px, 12vw, 56px));
   opacity: 0.4;
 }
 
@@ -1104,8 +1160,20 @@ select {
    Stays light-weight so the page never feels like a clinical dashboard. */
 .profile-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* `minmax(0, 1fr)` (instead of plain `1fr`) prevents columns from
+     widening to fit their longest cell, which was producing visibly
+     uneven column widths when row-value text differed (e.g. "Low"
+     vs "Medium"). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
+}
+
+/* When the metric list has an odd count, the orphan card would
+   otherwise sit alone in the left column at half width — making
+   the section look unbalanced.  Let the last card span both
+   columns so the grid reads as a complete block. */
+.profile-grid > .profile-row:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .profile-row {
@@ -1362,6 +1430,7 @@ select {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #0a0a0a;
   color: #fff;
 }
@@ -1369,14 +1438,14 @@ select {
 .sc-header {
   position: relative;
   z-index: 5;
-  padding: 16px var(--side-margin);
+  padding: max(16px, env(safe-area-inset-top)) var(--side-margin) 16px;
   display: flex;
   align-items: center;
 }
 
 .sc-icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1486,7 +1555,7 @@ select {
 .sc-footer {
   position: relative;
   z-index: 5;
-  padding: 16px var(--side-margin) 24px;
+  padding: 16px var(--side-margin) max(24px, env(safe-area-inset-bottom));
 }
 
 .sc-fallback {
@@ -1636,8 +1705,8 @@ select {
 }
 
 .sc-close {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 9999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.85);
@@ -1645,6 +1714,9 @@ select {
   line-height: 1;
   flex-shrink: 0;
   transition: background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sc-close:hover {
@@ -1700,7 +1772,11 @@ select {
   transform: translate(-50%, -50%);
   font-family: "Playfair Display", serif;
   font-weight: 600;
-  font-size: 132px;
+  /* Fluid by both width AND height (min() inside clamp) so the
+     digit fits the oval on narrow portrait phones, doesn't balloon
+     in landscape (where 28vw would otherwise approach 224px), and
+     still feels cinematic at 414+ portrait (132px). */
+  font-size: clamp(72px, min(28vw, 22dvh), 132px);
   line-height: 1;
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
@@ -1723,7 +1799,7 @@ select {
   align-items: center;
   justify-content: center;
   gap: 18px;
-  padding: 14px 0;
+  padding: 14px 0 max(14px, env(safe-area-inset-bottom));
   background: rgba(0, 0, 0, 0.85);
 }
 
@@ -1789,6 +1865,7 @@ select {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-cream);
 }
 
@@ -2015,7 +2092,10 @@ select {
 .results-title {
   font-family: "Playfair Display", serif;
   font-weight: 400;
-  font-size: 28px;
+  /* Fluid: 24px on 360px viewport (gives the score-ring + title
+     row room to breathe with multi-word skin types) → 30px from
+     ~420px upward. */
+  font-size: clamp(24px, 7vw, 30px);
   line-height: 1.05;
   letter-spacing: -0.5px;
   margin: 0 0 8px;
@@ -2626,7 +2706,10 @@ select {
 }
 
 .reco-card {
-  flex: 0 0 132px;
+  /* Fluid card width: ~38% of viewport, capped to 124-152px so two
+     cards always peek past the horizontal-scroll mask hint, but
+     the cards never stretch on tablet-width mobile frames. */
+  flex: 0 0 clamp(124px, 38vw, 152px);
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
@@ -2635,7 +2718,9 @@ select {
 
 .reco-image {
   width: 100%;
-  height: 132px;
+  /* Square-ish image that scales with the (now fluid) card width
+     instead of being fixed at 132px. */
+  aspect-ratio: 1 / 1;
   border-radius: var(--r-md);
   display: flex;
   align-items: center;
@@ -2752,5 +2837,31 @@ select {
   color: #fff;
   font-size: 9px;
   font-weight: 700;
+}
+
+/* =========================================================
+   Reduced-motion blanket
+   ----------------------------------------------------------
+   Respects the OS-level `prefers-reduced-motion: reduce` setting
+   by collapsing every animation/transition on the page to ~0ms.
+   This covers the score-ring sweep, meter-fill width animation,
+   targets-item hover lift, countdown pop, sc-flash, sc-spinner,
+   analyzing-orbit scan-line, checklist blink, period-switch
+   transitions, etc. — without us having to scatter individual
+   `@media` overrides next to each animation declaration.
+   The earlier `.intro-hero-scanline` override at the landing
+   section stays in place (with `animation: none`) as a stronger,
+   intent-specific stop for that decorative loop.
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 

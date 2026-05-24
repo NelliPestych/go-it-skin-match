@@ -104,8 +104,6 @@ export default function HomePage() {
         </span>
       </div>
 
-      <div style={{ flex: 1 }} />
-
       <div className="screen-footer intro-footer">
         <PillButton
           onClick={() => navigate("/capture")}
