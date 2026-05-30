@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
@@ -95,6 +95,52 @@ export default function ResultsPage() {
   const [activeTarget, setActiveTarget] = useState<FocusArea | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [metersIn, setMetersIn] = useState(false);
+
+  // Drag-to-scroll wiring for the Picks carousel on mouse devices.
+  // Native touch keeps its own momentum scroll (we only intercept
+  // mouse / pen pointers); the `dragMoved` ref lets the card click
+  // handler bail out when the user was actually dragging rather
+  // than tapping (so the click-to-scroll behaviour doesn't fire on
+  // the end of a drag gesture).
+  const recoRowRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    active: false,
+    startX: 0,
+    scrollStart: 0,
+    moved: 0,
+  });
+
+  const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return; // let native pan-x handle touch
+    const row = recoRowRef.current;
+    if (!row) return;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      scrollStart: row.scrollLeft,
+      moved: 0,
+    };
+    row.setPointerCapture(e.pointerId);
+  };
+
+  const onRowPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const row = recoRowRef.current;
+    if (!row) return;
+    const dx = e.clientX - dragRef.current.startX;
+    dragRef.current.moved = Math.max(dragRef.current.moved, Math.abs(dx));
+    row.scrollLeft = dragRef.current.scrollStart - dx;
+  };
+
+  const onRowPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    try {
+      recoRowRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // pointerId may already be released by the browser — ignore
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -381,9 +427,40 @@ export default function ResultsPage() {
                 : "No products matched your profile yet — try adjusting your concerns."}
             </p>
           ) : (
-            <div className="reco-row">
+            <div
+              className="reco-row"
+              ref={recoRowRef}
+              onPointerDown={onRowPointerDown}
+              onPointerMove={onRowPointerMove}
+              onPointerUp={onRowPointerUp}
+              onPointerCancel={onRowPointerUp}
+            >
               {filteredRecos.map((item, idx) => (
-                <article className="reco-card" key={item.product.id}>
+                <button
+                  type="button"
+                  className="reco-card"
+                  key={item.product.id}
+                  // Tapping any card smoothly scrolls it to the start
+                  // of the carousel — gives users a one-touch way to
+                  // bring partially-visible (peeking past the fade
+                  // mask) cards into focus instead of swiping.  We
+                  // suppress this when the click was actually the
+                  // tail end of a drag gesture (>5px movement) so
+                  // releasing the mouse after a drag doesn't snap
+                  // the page around.
+                  onClick={(e) => {
+                    if (dragRef.current.moved > 5) {
+                      dragRef.current.moved = 0;
+                      return;
+                    }
+                    e.currentTarget.scrollIntoView({
+                      behavior: "smooth",
+                      inline: "start",
+                      block: "nearest",
+                    });
+                  }}
+                  aria-label={`${item.product.brand} ${item.product.name}, $${item.product.price.toFixed(2)}`}
+                >
                   <div
                     className="reco-image"
                     style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}
@@ -400,7 +477,7 @@ export default function ResultsPage() {
                     )}
                     <span className="reco-price">${item.product.price.toFixed(2)}</span>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           )}
@@ -467,7 +544,7 @@ export default function ResultsPage() {
                 data-metric={row.id}
               >
                 <div className="row-head">
-                  <span className="row-label">{row.label}</span>
+                  <span className="row-label" title={row.label}>{row.label}</span>
                   <span className="row-value">{row.valueLabel}</span>
                 </div>
                 <div className="meter-track">

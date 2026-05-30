@@ -1191,9 +1191,23 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  /* `min-width: 0` lets the flex children shrink below their
+     intrinsic content width — needed so the label can truncate
+     with an ellipsis on narrow viewports (360px) where long words
+     like "Pigmentation" would otherwise push past the card edge. */
+  min-width: 0;
 }
 
 .profile-row .row-label {
+  /* Take all the remaining row-head width that the value doesn't
+     claim, and truncate cleanly when there isn't enough room.  The
+     full label stays accessible via the `title` attribute set on
+     the span by ResultsPage. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
@@ -1201,6 +1215,10 @@ select {
 }
 
 .profile-row .row-value {
+  /* Value never shrinks or wraps — readability of the rating
+     wins over the label.  The label loses gracefully (ellipsis). */
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-60);
@@ -2419,6 +2437,26 @@ select {
   display: none;
 }
 
+/* Profile tab specifically needs narrower outer padding so the
+   2-col card grid gets the extra horizontal room it needs to fit
+   the longest label+value pair ("Pigmentation" + "Medium") on a
+   single line at 360px.  Other tabs (Targets numbered list, Picks
+   horizontal scroller, Routine steps, Insights bullets) keep the
+   wider editorial inset of the base .tab-panel rule. */
+.tab-panel:has(> .profile-grid) {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Picks tab — tighter outer padding so the horizontal product
+   row reads as a wide editorial gallery and the first card sits
+   closer to the screen edge than the heading inset (creates a
+   subtle "swipeable" affordance). */
+.tab-panel:has(> .recos-head) {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
 /* Profile — 2-col card grid uses .profile-grid / .profile-row from the
    AI Skin Report block above. The v2 tuning here just gives the
    cards slightly softer corners and a calmer label weight. */
@@ -2430,7 +2468,11 @@ select {
 
 .results-v2 .profile-row .row-label {
   font-weight: 600;
-  font-size: 13px;
+  /* Slightly smaller than the default 13px so the longest label
+     pair ("Pigmentation" + "Medium") fits on one line at 360px
+     once the Profile panel's outer padding is tightened. */
+  font-size: 11.5px;
+  letter-spacing: -0.05px;
 }
 
 .results-v2 .profile-row .row-value {
@@ -2679,30 +2721,42 @@ select {
 
 .reco-row {
   display: flex;
-  gap: 12px;
+  /* Wider gap between cards so the gallery feels editorial /
+     premium instead of a tight list view. */
+  gap: 16px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  /* `proximity` snap (vs. `mandatory`) makes the swipe feel fluid:
+     the browser doesn't keep re-snapping mid-gesture, it only nudges
+     to the nearest snap-point if the user releases close to one.
+     Gives a much more native, momentum-aware feel on touch. */
+  scroll-snap-type: x proximity;
+  /* Aligns the snap target start to (row-left + 20px) so the first
+     card visually rests at the same 20px inset that the heading
+     uses (matches the row's padding-left). */
+  scroll-padding-left: 20px;
+  scroll-padding-right: 20px;
+  /* Smooth iOS momentum scroll. */
   -webkit-overflow-scrolling: touch;
-  margin: 0 calc(-1 * var(--side-margin));
-  padding: 0 var(--side-margin) 4px;
-  /* Soft fade on the right edge to hint that more cards exist past
-     the viewport — only visible when the row overflows. */
-  -webkit-mask-image: linear-gradient(
-    to right,
-    black 0%,
-    black calc(100% - 28px),
-    transparent 100%
-  );
-          mask-image: linear-gradient(
-    to right,
-    black 0%,
-    black calc(100% - 28px),
-    transparent 100%
-  );
+  /* Native horizontal pan on touch devices (so the JS pointer
+     handler can stay focused on mouse drag).  cursor: grab on
+     desktop signals "this is draggable". */
+  touch-action: pan-x;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  margin: 0 -20px;
+  padding: 0 20px 4px;
+  /* No edge mask — the fade introduced a visible transparent strip on
+     the right side over the cream-tinted Picks panel.  The natural
+     clip at the row's right edge is cleaner. */
 }
 
 .reco-row::-webkit-scrollbar {
   display: none;
+}
+
+.reco-row:active {
+  cursor: grabbing;
 }
 
 .reco-card {
@@ -2714,6 +2768,30 @@ select {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Reset native button defaults so the card reads as a card, not
+     as a default-styled button.  The element is still semantically
+     a button (clickable; keyboard-accessible) — only the visual
+     defaults are stripped. */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+
+.reco-card:active {
+  /* Tiny press feedback so taps register tactile-y.  No hover lift
+     because hover doesn't exist on the primary mobile target. */
+  transform: scale(0.985);
+}
+
+.reco-card:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+  border-radius: var(--r-md);
 }
 
 .reco-image {
