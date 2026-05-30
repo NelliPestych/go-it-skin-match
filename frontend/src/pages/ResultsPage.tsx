@@ -491,29 +491,72 @@ export default function ResultsPage() {
             aria-labelledby={tabId("routine")}
             hidden={tab !== "routine"}
           >
-            <div className="period-switch" role="tablist" aria-label="Time of day">
-              <button
-                type="button"
-                role="tab"
-                className="period-switch-btn"
-                aria-selected={routinePeriod === "morning"}
-                data-active={routinePeriod === "morning"}
-                onClick={() => setRoutinePeriod("morning")}
+            {/* Title is a separate node that swaps text dynamically;
+                the switcher itself is icon-only (sun / moon).  Keeps
+                the active period legible at a glance without the
+                duplication of seeing the same word in the title and
+                inside the pill button. */}
+            <div className="routine-header">
+              <h3 className="routine-period-title">
+                {routinePeriod === "morning" ? "Morning" : "Evening"}
+              </h3>
+              <div
+                className="period-switch period-switch--icon-only"
+                role="tablist"
+                aria-label="Time of day"
               >
-                <span className="period-switch-icon" aria-hidden="true">☀</span>
-                Morning
-              </button>
-              <button
-                type="button"
-                role="tab"
-                className="period-switch-btn"
-                aria-selected={routinePeriod === "evening"}
-                data-active={routinePeriod === "evening"}
-                onClick={() => setRoutinePeriod("evening")}
-              >
-                <span className="period-switch-icon" aria-hidden="true">☾</span>
-                Evening
-              </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className="period-switch-btn"
+                  aria-selected={routinePeriod === "morning"}
+                  aria-label="Morning routine"
+                  data-active={routinePeriod === "morning"}
+                  onClick={() => setRoutinePeriod("morning")}
+                >
+                  <span className="period-switch-icon" aria-hidden="true">
+                    {/* Sun — central disc + eight short rays.  Stroke
+                        is currentColor so it follows button state. */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="8" cy="8" r="3" />
+                      <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" />
+                    </svg>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className="period-switch-btn"
+                  aria-selected={routinePeriod === "evening"}
+                  aria-label="Evening routine"
+                  data-active={routinePeriod === "evening"}
+                  onClick={() => setRoutinePeriod("evening")}
+                >
+                  <span className="period-switch-icon" aria-hidden="true">
+                    {/* Crescent moon — single closed path, slight tilt
+                        for a more designed feel than a pure D-shape. */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M13.2 9.6A5.5 5.5 0 1 1 6.4 2.8a4.4 4.4 0 0 0 6.8 6.8Z" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
             </div>
             <ol className="routine-steps">
               {routineSteps.slice(0, 5).map((step) => (

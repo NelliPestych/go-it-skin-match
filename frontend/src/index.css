@@ -110,7 +110,13 @@ select {
 
 .mobile-frame {
   width: 100%;
-  max-width: var(--mobile-width);
+  /* On real mobile devices we let the frame fill the viewport so
+     wider phones (iPhone 12/13/14 ≈ 390px, Pro Max ≈ 414–430px,
+     most Androids 393–412px) don't show cream stripes on either
+     side of the content.  The 375px cap is reintroduced inside the
+     desktop-preview media query below, where the frame intentionally
+     becomes a stylised iPhone-sized window. */
+  max-width: none;
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0 auto;
@@ -125,6 +131,7 @@ select {
     padding: 24px 0;
   }
   .mobile-frame {
+    max-width: var(--mobile-width);
     border-radius: 40px;
     box-shadow: 0 20px 60px rgba(60, 32, 50, 0.18);
     overflow: hidden;
@@ -2518,6 +2525,28 @@ select {
   flex-shrink: 0;
 }
 
+/* Routine — header row pairs the dynamic period title with the
+   icon-only switcher.  Title is the loud label ("Morning" / "Evening")
+   that swaps when the user taps a side of the switcher; the switcher
+   shows just sun and moon glyphs. */
+.routine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.routine-period-title {
+  margin: 0;
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  line-height: 1.1;
+}
+
 /* Routine — period switcher (Morning / Evening). */
 .period-switch {
   display: inline-flex;
@@ -2562,6 +2591,44 @@ select {
 .period-switch-icon {
   font-size: 13px;
   line-height: 1;
+}
+
+/* Icon-only variant: the buttons are square-ish glyph slots, no text
+   label inside.  Larger icon, tighter padding so the pill stays
+   visually balanced next to the period title. */
+.period-switch--icon-only {
+  margin-bottom: 0;
+  /* Switcher carries a strong 1px black border so it reads as a
+     deliberate UI control against the lavender Routine panel. */
+  border-color: var(--text);
+}
+
+/* Active pill picks up the Routine tab's lavender so the switcher
+   feels stitched to the surrounding pastel rather than a foreign
+   black chip.  Dark ink stays the foreground for legibility. */
+.period-switch--icon-only .period-switch-btn[data-active="true"] {
+  background: var(--lavender);
+  color: var(--text);
+}
+
+.period-switch--icon-only .period-switch-btn {
+  padding: 6px 10px;
+  min-width: 36px;
+  height: 32px;
+  justify-content: center;
+}
+
+.period-switch--icon-only .period-switch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0; /* swallow any text-node whitespace next to the SVG */
+}
+
+.period-switch--icon-only .period-switch-icon svg {
+  display: block;
 }
 
 .routine-steps {
