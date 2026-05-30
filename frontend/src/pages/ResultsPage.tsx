@@ -392,14 +392,20 @@ export default function ResultsPage() {
         >
           <div className="recos-head">
             <h2 className="recos-title">Recommended</h2>
-            <button
-              type="button"
-              className="recos-link"
-              onClick={() => setActiveTarget(null)}
-              disabled={!activeTarget}
-            >
-              {activeTarget ? "Clear filter" : "See all"}
-            </button>
+            {/* Only render the link when a focus chip is active, so
+                the default state stays clean — no disabled "See all"
+                slot to confuse the user about whether anything is
+                filtered.  The button does exactly one thing: clear
+                the current Targets filter. */}
+            {activeTarget && (
+              <button
+                type="button"
+                className="recos-link"
+                onClick={() => setActiveTarget(null)}
+              >
+                Clear filter
+              </button>
+            )}
           </div>
           <p className="recos-tag">
             {activeTarget ? `Picks for ${activeTarget.toLowerCase()}.` : recoTagline}

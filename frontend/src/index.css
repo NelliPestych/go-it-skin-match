@@ -2876,6 +2876,10 @@ select {
      instead of being fixed at 132px. */
   aspect-ratio: 1 / 1;
   border-radius: var(--r-md);
+  /* Thin hairline frame around the product silhouette — gives the
+     image a defined edge against the cream Picks panel without
+     turning the whole card into a boxed tile. */
+  border: 1px solid var(--text-10);
   display: flex;
   align-items: center;
   justify-content: center;
