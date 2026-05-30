@@ -2516,13 +2516,22 @@ select {
   color: var(--text);
 }
 
+/* Insight bullet is now a small sparkle SVG.  Box is fixed-size so
+   the leading column aligns even if the SVG path changes; flex-shrink
+   stops it from collapsing on narrow text lines. */
 .insights-bullet {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--r-pill);
-  background: var(--text);
-  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text);
+  margin-top: 1px;
   flex-shrink: 0;
+}
+
+.insights-bullet svg {
+  display: block;
 }
 
 /* Routine — header row pairs the dynamic period title with the

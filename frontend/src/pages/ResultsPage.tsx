@@ -623,7 +623,15 @@ export default function ResultsPage() {
           <ul className="insights-list">
             {insights.map((line, idx) => (
               <li key={idx} className="insights-item">
-                <span className="insights-bullet" aria-hidden="true" />
+                {/* Four-point sparkle — reads as polish / AI insight
+                    rather than a generic list dot.  Currentcolor so
+                    we can recolor per-tab later without touching JSX. */}
+                <span className="insights-bullet" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
+                    <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
+                    <path d="M11.6 8.4c.15 1.2.65 2 1.8 2.3.1.03.1.17 0 .2-1.15.3-1.65 1.1-1.8 2.3-.15-1.2-.65-2-1.8-2.3-.1-.03-.1-.17 0-.2 1.15-.3 1.65-1.1 1.8-2.3Z" />
+                  </svg>
+                </span>
                 <p>{line}</p>
               </li>
             ))}
