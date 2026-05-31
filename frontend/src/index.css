@@ -24,6 +24,10 @@
   --lavender: #f1e9ff;
   --sky: #e0f2fe;
   --peach: #e5c1b8;
+  /* Soft peach pastel — matches the lightness of the other pastels
+     for backgrounds (rows, cards).  The base --peach stays at its
+     deeper tint for accents like meter fills. */
+  --peach-soft: #fce4d8;
   --gold: #d4af37;
 
   --rose-accent: #fb7185;
@@ -78,6 +82,11 @@ body,
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-cream);
+  /* Clip any accidental horizontal overflow at the document level so
+     swiping the Picks carousel (or any other horizontal scroller)
+     never bleeds into a page-level horizontal scroll that exposes
+     the body background on the right edge. */
+  overflow-x: hidden;
 }
 
 a {
@@ -1244,23 +1253,26 @@ select {
   transition: width 0.6s ease;
 }
 
+/* Brighter mid-pastel fills — saturated enough to read clearly on
+   the light track, but still in the same warm, calm family as the
+   quiz cards (i.e. nothing as clinical as the accent tokens). */
 .profile-row[data-tone="rose"] .meter-fill {
-  background: var(--rose-accent);
+  background: #fbc8c8;
 }
 .profile-row[data-tone="mint"] .meter-fill {
-  background: var(--mint-accent);
+  background: #b9ebb5;
 }
 .profile-row[data-tone="cream"] .meter-fill {
-  background: var(--cream-accent);
+  background: #ffdf9b;
 }
 .profile-row[data-tone="lavender"] .meter-fill {
-  background: var(--lavender-accent);
+  background: #d3c2f3;
 }
 .profile-row[data-tone="sky"] .meter-fill {
-  background: var(--sky-accent);
+  background: #a4d6f3;
 }
 .profile-row[data-tone="peach"] .meter-fill {
-  background: var(--peach);
+  background: #f7c4af;
 }
 
 /* Soft "Show more" toggle below the metric grid — pill-shaped, low
@@ -2811,6 +2823,10 @@ select {
      uses (matches the row's padding-left). */
   scroll-padding-left: 20px;
   scroll-padding-right: 20px;
+  /* Stop horizontal swipe momentum at this scroller's edges — without
+     this the iOS rubber-band can drag the parent layout sideways and
+     leak the body background past the cream Picks panel. */
+  overscroll-behavior-x: contain;
   /* Smooth iOS momentum scroll. */
   -webkit-overflow-scrolling: touch;
   /* Native horizontal pan on touch devices (so the JS pointer
