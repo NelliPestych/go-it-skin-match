@@ -29,7 +29,7 @@
  *      navigate to the quiz; AnalyzingPage dispatches the multi-image
  *      upload from there.
  */
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import CameraStatusPanel from "../components/camera/CameraStatusPanel";
@@ -54,10 +54,48 @@ const POSE_HINT: Record<CaptureStep, string> = {
   right: "Turn your face right",
 };
 
+/* Manual-upload constants — kept in sync with the SmartCameraIntro
+   picker so the inline fallback button on this page accepts the same
+   files the intro screen does. */
+const MAX_UPLOAD_MB = 10;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export default function SmartCameraPage() {
   const navigate = useNavigate();
   const flow = useFlow();
   const { status: camStatus, videoRef, restart } = useWebcam();
+
+  // Inline manual-upload fallback — clicking "Upload photo instead"
+  // opens the OS file picker straight away, instead of navigating
+  // back to the intro screen and asking the user to tap Upload there.
+  // On a valid selection we push the File into FlowProvider and
+  // continue into the quiz, exactly as the intro upload path does.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const onPickFile = () => {
+    setUploadError(null);
+    fileRef.current?.click();
+  };
+
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!ALLOWED_TYPES.includes(f.type)) {
+      setUploadError(`Unsupported file type: ${f.type || "unknown"}. Use JPG, PNG or WEBP.`);
+      e.target.value = "";
+      return;
+    }
+    if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setUploadError(
+        `File is ${(f.size / 1024 / 1024).toFixed(1)} MB — please pick one under ${MAX_UPLOAD_MB} MB.`,
+      );
+      e.target.value = "";
+      return;
+    }
+    flow.setImageFile(f);
+    navigate("/quiz/skin-type");
+  };
 
   // Surface the live <video> to face / lighting / capture hooks.
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
@@ -284,10 +322,21 @@ export default function SmartCameraPage() {
       )}
 
       <div className="sc-footer">
-        <button className="sc-fallback" onClick={() => navigate("/capture")}>
+        {uploadError && <div className="error" style={{ marginBottom: 8 }}>{uploadError}</div>}
+        <button className="sc-fallback" onClick={onPickFile}>
           Upload photo instead
         </button>
       </div>
+
+      {/* Hidden picker triggered by the fallback button — picks one
+          image from gallery / files and feeds it into FlowProvider. */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={onFileChange}
+        style={{ display: "none" }}
+      />
     </div>
   );
 }
