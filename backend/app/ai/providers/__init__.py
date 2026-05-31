@@ -18,6 +18,14 @@ from app.ai.providers.haut_ai import (
 )
 from app.ai.providers.local import LocalHeuristicProvider
 from app.ai.providers.mock_haut import MockHautAIProvider
+from app.ai.providers.openai_vision import (
+    OpenAIVisionAuthError,
+    OpenAIVisionConfigError,
+    OpenAIVisionError,
+    OpenAIVisionProvider,
+    OpenAIVisionRequestError,
+    OpenAIVisionServerError,
+)
 
 __all__ = [
     "SkinAnalysisProvider",
@@ -29,5 +37,11 @@ __all__ = [
     "HautAIAuthError",
     "HautAIRequestError",
     "HautAIServerError",
+    "OpenAIVisionProvider",
+    "OpenAIVisionError",
+    "OpenAIVisionConfigError",
+    "OpenAIVisionAuthError",
+    "OpenAIVisionRequestError",
+    "OpenAIVisionServerError",
     "get_skin_analysis_provider",
 ]
