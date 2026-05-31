@@ -695,7 +695,11 @@ select {
      (Galaxy S8 360x640, iPhone SE 375x667); ceiling stops the hero
      from getting cartoonishly tall on iPad / desktop frames. */
   flex: 1 1 auto;
-  min-height: 240px;
+  /* Adaptive floor — on tall phones the hero still gets ~240 px of
+     headroom, but on iPhone-5/SE-class viewports (568 px tall) the
+     min-height shrinks to ~180 px so the rest of the layout (copy,
+     chips, CTA) stays inside one viewport without scroll. */
+  min-height: clamp(180px, 32dvh, 240px);
   max-height: clamp(280px, 52dvh, 460px);
   border-radius: var(--r-2xl);
   overflow: hidden;
@@ -853,9 +857,90 @@ select {
   line-height: 1;
 }
 
-/* Footer tweaks unique to the landing screen. */
+/* Footer tweaks unique to the landing screen.  The CTA is fixed at
+   the viewport bottom (like the Shop CTA on ResultsPage) so it stays
+   visible even when content overflows due to translation, font-size
+   zoom, or extra benefit chips landing on a second row.  Centered
+   horizontally to the same column the mobile frame uses. */
 .intro-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--mobile-width);
   padding-bottom: max(28px, env(safe-area-inset-bottom));
+  /* Pointer events go to the children; the gradient backdrop below
+     stays transparent to clicks so taps on the chip row that peek
+     under the CTA still register on the chip, not the footer wrap. */
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Soft cream fade above the CTA — shorter than the ResultsPage
+   variant (40 px instead of 80 px) so the chip row right above stays
+   fully legible and doesn't read as "washed out" under the gradient. */
+.intro-footer::before {
+  content: "";
+  position: absolute;
+  inset: -24px 0 0 0;
+  background: linear-gradient(180deg, rgba(249, 247, 242, 0) 0%, var(--bg-cream) 75%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.intro-footer > * {
+  pointer-events: auto;
+}
+
+/* Reserve room under the fixed CTA so the chips row doesn't slide
+   under the button on short viewports. */
+.intro-screen {
+  padding-bottom: 110px;
+}
+
+/* Tighter header on the landing screen — `clamp` shrinks the bottom
+   padding on short viewports to claw back vertical room for the hero
+   and copy below.  Top padding keeps its safe-area floor so the notch
+   is still respected. */
+.intro-screen .app-header {
+  padding-bottom: clamp(12px, 3vh, 24px);
+}
+
+/* iPhone 5/SE-class viewports (≤ 640 px tall): drop the header's
+   bottom padding to a hard 6 px so the layout has noticeably more
+   room for the hero / copy / chips / CTA stack. */
+@media (max-height: 640px) {
+  .intro-screen .app-header {
+    padding-bottom: 6px;
+  }
+  /* Trim the bottom spacer to match the new CTA height. */
+  .intro-screen {
+    padding-bottom: 92px;
+  }
+}
+
+/* Compact CTA on short viewports — shorter pill + tighter type keeps
+   the primary action proportionate to small-screen layouts on every
+   page (intro, quiz, capture, results, etc.). */
+@media (max-height: 640px) {
+  .pill-btn {
+    height: 48px;
+    font-size: 12px;
+    letter-spacing: 1.2px;
+  }
+}
+
+/* Narrow viewports (≤ 400 px wide): drop the global side-margin
+   token from 32 px to 20 px so every page that pads against it (the
+   header, screen-pad, section margins, tab panels, etc.) gains an
+   extra ~24 px of content width.  Negative-margin "break out of
+   padding" tricks follow automatically because they reference the
+   same variable. */
+@media (max-width: 400px) {
+  :root {
+    --side-margin: 20px;
+  }
 }
 
 /* =========================================================
