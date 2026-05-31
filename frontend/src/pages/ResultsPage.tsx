@@ -467,24 +467,30 @@ export default function ResultsPage() {
                   type="button"
                   className="reco-card"
                   key={item.product.id}
-                  // Tapping any card smoothly scrolls it to the start
-                  // of the carousel — gives users a one-touch way to
-                  // bring partially-visible (peeking past the fade
-                  // mask) cards into focus instead of swiping.  We
-                  // suppress this when the click was actually the
-                  // tail end of a drag gesture (>5px movement) so
-                  // releasing the mouse after a drag doesn't snap
-                  // the page around.
+                  // Tapping a card scrolls it to the start of the
+                  // carousel.  We scroll the row element directly
+                  // (instead of calling card.scrollIntoView) because
+                  // scrollIntoView walks up scrollable ancestors and
+                  // can set the body's scrollLeft on narrow
+                  // viewports — that displaces the whole mobile
+                  // frame horizontally and exposes a strip of body
+                  // background on the right.  Direct scrollTo on the
+                  // row contains the scroll exclusively to the
+                  // carousel.  We suppress this when the click was
+                  // actually the tail end of a drag gesture (>5px
+                  // movement) so releasing the mouse after a drag
+                  // doesn't snap the row around.
                   onClick={(e) => {
                     if (dragRef.current.moved > 5) {
                       dragRef.current.moved = 0;
                       return;
                     }
-                    e.currentTarget.scrollIntoView({
-                      behavior: "smooth",
-                      inline: "start",
-                      block: "nearest",
-                    });
+                    const row = recoRowRef.current;
+                    if (!row) return;
+                    // 20px matches .reco-row's scroll-padding-left so
+                    // the card lands at the same inset as the heading.
+                    const target = e.currentTarget.offsetLeft - 20;
+                    row.scrollTo({ left: target, behavior: "smooth" });
                   }}
                   aria-label={`${item.product.brand} ${item.product.name}, $${item.product.price.toFixed(2)}`}
                 >

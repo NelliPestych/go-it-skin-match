@@ -2938,6 +2938,13 @@ select {
      cards always peek past the horizontal-scroll mask hint, but
      the cards never stretch on tablet-width mobile frames. */
   flex: 0 0 clamp(124px, 38vw, 152px);
+  /* Belt-and-braces against subpixel rounding: width + min-width on
+     the card guarantee every chip in the row reports the same used
+     width to the layout engine, so two adjacent cards never end up
+     visibly different sizes on narrow viewports (iPhone 5 / SE at
+     320px was the case that surfaced this). */
+  width: clamp(124px, 38vw, 152px);
+  min-width: clamp(124px, 38vw, 152px);
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
