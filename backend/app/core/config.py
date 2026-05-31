@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     haut_ai_base_url: str = "https://api.haut.ai"
     haut_ai_timeout_seconds: float = 30.0
 
+    # ── OpenAI Vision provider config ────────────────────────────────
+    # Only consulted when `SKIN_ANALYSIS_PROVIDER=openai_vision`.
+    # Same pattern as Haut.AI — `Optional` key so importing settings
+    # never crashes on dev machines without credentials; the provider
+    # raises `OpenAIVisionConfigError` at construction time if missing.
+    openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+    openai_timeout_seconds: float = 30.0
+
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 1440
 

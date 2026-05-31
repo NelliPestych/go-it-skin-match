@@ -393,9 +393,10 @@ deterministic mock, and the real third-party AI:
 
 | value         | provider                       | when to use                                                                                  |
 | ------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `local`       | OpenCV heuristic (default)     | Local dev with no network. Cheap, deterministic, single-image only.                          |
-| `mock_haut`   | `MockHautAIProvider`           | Demos & dev. Deterministic per image hash, returns realistic AI-shaped metrics. **No API key required.** |
-| `haut_ai`     | `HautAIProvider` (real)        | Production. Calls the live Haut.AI HTTP API via `httpx.AsyncClient`. Requires `HAUT_AI_API_KEY`. |
+| `local`         | OpenCV heuristic (default)        | Local dev with no network. Cheap, deterministic, single-image only.                          |
+| `mock_haut`     | `MockHautAIProvider`              | Demos & dev. Deterministic per image hash, returns realistic AI-shaped metrics. **No API key required.** |
+| `haut_ai`       | `HautAIProvider` (real)           | Production. Calls the live Haut.AI HTTP API via `httpx.AsyncClient`. Requires `HAUT_AI_API_KEY`. |
+| `openai_vision` | `OpenAIVisionProvider` (real)     | Production. Calls OpenAI Vision (`gpt-4o-mini`) via the official SDK with a strict-JSON cosmetic-skin prompt. Requires `OPENAI_API_KEY`. |
 
 The real provider lives in
 [`backend/app/ai/providers/haut_ai.py`](backend/app/ai/providers/haut_ai.py)
@@ -483,6 +484,117 @@ misconfig fails loudly instead of silently degrading the experience.
 
 A single live integration test (`test_live_haut_ai_smoke`) opts in via
 `HAUT_AI_API_KEY` in the environment; the normal test suite skips it.
+
+### OpenAI Vision provider
+
+`SKIN_ANALYSIS_PROVIDER=openai_vision` routes analyses through OpenAI's
+vision-capable chat completion (`gpt-4o-mini` by default) using the
+official `openai` Python SDK. It is structured the same way as the
+Haut.AI provider so the rest of the system stays untouched:
+
+- `_build_messages(...)` composes the request: a strict system prompt
+  (cosmetic-only, JSON-only) plus a single user turn carrying a `text`
+  part and an `image_url` part with the front photo inlined as a base64
+  data URL.
+- `_call_openai(...)` is the **only** place the SDK is touched. It
+  uses `response_format={"type": "json_object"}` so the model returns
+  strict JSON, classifies every failure mode into a typed
+  `OpenAIVisionError` subclass, and parses the JSON content defensively.
+- `_normalize_response(...)` projects the model JSON onto
+  `NormalizedSkinAnalysisResult`. Tolerant by design: every metric is
+  optional, categorical strings (`"low" | "medium" | "high"`) and
+  numeric scores (0–1 or 0–100) both parse, and anything we can't
+  parse falls back to conservative schema defaults. The `pores_score`
+  legacy field is derived from `pores_visibility` (`LOW→0.2`,
+  `MEDIUM→0.5`, `HIGH→0.8`).
+
+Only the front photo is sent today. The `left` / `right` parameters
+on `analyze(...)` are accepted and dropped to preserve interface
+compatibility — they are still persisted by the service layer, so a
+future multi-angle variant can pick them up without touching the
+`SkinAnalysisProvider` contract.
+
+#### Safety prompt
+
+The system prompt explicitly forbids medical or dermatological
+diagnosis, disease names, and certainty language; the model is asked
+for visually estimable cosmetic signals only. A unit test pins the
+"do not provide medical" / "dermatological diagnosis" / "disease"
+markers so anyone editing the prompt is forced to keep the safety
+guidance explicit.
+
+#### Required environment
+
+| var                                 | required when                    | notes                                                                                      |
+| ----------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------ |
+| `SKIN_ANALYSIS_PROVIDER`            | always                           | One of `local`, `mock_haut`, `haut_ai`, `openai_vision`. Defaults to `local`.              |
+| `OPENAI_API_KEY`                    | when provider = `openai_vision`  | Missing key → `OpenAIVisionConfigError` raised loudly at factory time. Never logged.       |
+| `OPENAI_MODEL`                      | optional                         | Defaults to `gpt-4o-mini`. Override to point at a different vision-capable chat model.     |
+| `OPENAI_TIMEOUT_SECONDS`            | optional                         | Defaults to `30`. Applies to every OpenAI call.                                            |
+| `SKIN_ANALYSIS_FALLBACK_PROVIDER`   | optional                         | `local` or `mock_haut`. **Cannot be `openai_vision`** (would loop) — rejected at factory time. |
+
+#### Fallback behaviour
+
+If `SKIN_ANALYSIS_FALLBACK_PROVIDER` is set and an OpenAI call fails
+at runtime (auth, 4xx, 5xx, timeout, network, rate-limit), the
+configured fallback provider runs and its result is returned with
+three extra keys on `raw_summary`:
+
+```json
+{
+  "fallback_used": true,
+  "original_provider": "openai_vision",
+  "original_provider_error": "OpenAI rate limit exceeded"
+}
+```
+
+Same rules as Haut.AI: config errors (missing key, missing SDK,
+recursive fallback) **never** trigger the fallback — they propagate
+so a deploy-time misconfig fails loudly.
+
+#### Safety / privacy
+
+- API keys are read once at startup and never logged.
+- Raw model responses are **not** stored. `raw_summary` is restricted
+  to `model`, `response_id`, `prompt_tokens`, `completion_tokens`,
+  `received_metrics`, the short `summary` string, and the fallback
+  audit markers above. No base64 image bytes ever land in
+  `features_json`.
+- The image is sent as an inline base64 `data:` URL inside a single
+  Chat Completions request — no intermediate storage on OpenAI's
+  side beyond the request itself, and no image bytes echoed back
+  into the persisted result.
+- The `summary` field returned by the model is hard-capped at 240
+  characters in case the model ignores the "under 120 characters"
+  instruction.
+
+#### Tests
+
+`backend/app/tests/ai/test_providers_openai_vision.py` covers:
+
+- construction-time config errors (missing key, looping fallback),
+- request shape (system prompt, JSON response format, `image_url`
+  data-URL carrying the base64 front bytes, low temperature),
+- the prompt's safety wording (no medical / disease language, JSON
+  only),
+- normalization across categorical + numeric metric shapes,
+- tolerance to missing optional metrics (conservative schema
+  defaults) and to unknown skin-type strings (fall back to `normal`),
+- error classification (auth, rate limit → server, timeout → server,
+  network → server, bad request → request, generic API → server,
+  invalid / empty / non-object JSON → request),
+- the fallback contract (request-time errors fall back; config
+  errors propagate; `raw_summary` is annotated with audit markers),
+- `raw_summary` discipline (no base64, no `data:image`, no
+  `image_url`, summary length capped),
+- interface compatibility — side images are accepted and dropped
+  without crashing,
+- factory routing (`openai_vision`, fallback resolution, rejection
+  of `openai_vision` as its own fallback).
+
+A single live integration test (`test_live_openai_vision_smoke`)
+opts in via `OPENAI_API_KEY` in the environment; the normal test
+suite skips it.
 
 ---
 
