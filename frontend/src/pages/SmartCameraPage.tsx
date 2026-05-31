@@ -54,9 +54,7 @@ const POSE_HINT: Record<CaptureStep, string> = {
   right: "Turn your face right",
 };
 
-/* Manual-upload constants — kept in sync with the SmartCameraIntro
-   picker so the inline fallback button on this page accepts the same
-   files the intro screen does. */
+/* Kept in sync with SmartCameraIntro's picker. */
 const MAX_UPLOAD_MB = 10;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -65,11 +63,7 @@ export default function SmartCameraPage() {
   const flow = useFlow();
   const { status: camStatus, videoRef, restart } = useWebcam();
 
-  // Inline manual-upload fallback — clicking "Upload photo instead"
-  // opens the OS file picker straight away, instead of navigating
-  // back to the intro screen and asking the user to tap Upload there.
-  // On a valid selection we push the File into FlowProvider and
-  // continue into the quiz, exactly as the intro upload path does.
+  // Manual-upload fallback — same flow as the intro picker.
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -328,8 +322,6 @@ export default function SmartCameraPage() {
         </button>
       </div>
 
-      {/* Hidden picker triggered by the fallback button — picks one
-          image from gallery / files and feeds it into FlowProvider. */}
       <input
         ref={fileRef}
         type="file"

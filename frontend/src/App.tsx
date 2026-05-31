@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
 // `pages/CapturePage.tsx` is intentionally kept on disk as a fallback
@@ -19,9 +20,19 @@ import ResultsPage from "./pages/ResultsPage";
 import HistoryPage from "./pages/HistoryPage";
 import { FlowProvider } from "./state/flow";
 
+/** Reset window scroll on every route change (Router v6 doesn't). */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <FlowProvider>
+      <ScrollToTop />
       <div className="mobile-frame">
         <Routes>
           <Route path="/" element={<HomePage />} />

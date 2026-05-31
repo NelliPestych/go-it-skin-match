@@ -19,6 +19,11 @@ const STEPS = [
   "Finalizing routine map",
 ];
 
+const STEP_INTERVAL_MS = 800;
+/** Hold the page open long enough for the last checklist item to flip
+ *  to the green ✓ before navigating, regardless of backend speed. */
+const MIN_VISIBLE_MS = (STEPS.length + 1) * STEP_INTERVAL_MS;
+
 export default function AnalyzingPage() {
   const navigate = useNavigate();
   // `quizAnswers` is the new canonical source (filled by `QuizPage`).
@@ -48,12 +53,13 @@ export default function AnalyzingPage() {
 
     let cancelled = false;
     const stepTimers: number[] = [];
+    const mountAt = Date.now();
 
     STEPS.forEach((_, idx) => {
       stepTimers.push(
         window.setTimeout(() => {
           if (!cancelled) setCurrentStep(idx + 1);
-        }, (idx + 1) * 800),
+        }, (idx + 1) * STEP_INTERVAL_MS),
       );
     });
 
@@ -95,14 +101,15 @@ export default function AnalyzingPage() {
           raw_sensitivity: quizAnswers.sensitivity,
         };
         await api.submitQuiz(payload);
-        // ensure the loader plays at least 2.5s for UX
-        await new Promise((r) => setTimeout(r, 2400));
+        // Wait for the checklist animation to finish before redirecting.
+        const elapsed = Date.now() - mountAt;
+        const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+        if (remaining > 0) {
+          await new Promise((r) => setTimeout(r, remaining));
+        }
         if (!cancelled)
-          // `fromAnalyzing` flag tells the Results page this navigation
-          // is the user's *first* arrival at this scan, so the page
-          // can show the one-time "Saved to your history" toast.
-          // ResultsPage clears the flag immediately after reading it
-          // so a refresh does not replay the toast.
+          // `fromAnalyzing` flag drives the one-time "Saved to your
+          // history" toast on ResultsPage.
           navigate(`/results/${upload.analysis_id}`, {
             replace: true,
             state: { fromAnalyzing: true },
@@ -137,16 +144,7 @@ export default function AnalyzingPage() {
         </IconButton>
       </div>
 
-      <div
-        className="relative"
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "16px 32px",
-        }}
-      >
+      <div className="relative analyzing-body">
         {error ? (
           <>
             <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>

@@ -111,11 +111,8 @@ export default function SmartCameraIntroPage() {
             />
           </svg>
         </IconButton>
-        {/* "AI Skin Scan" eyebrow lives in the header so the body copy
-            below starts straight with the headline.  An equal-width
-            spacer on the right balances the Back IconButton so the
-            badge centres precisely between them. */}
         <span className="badge-pill">AI Skin Scan</span>
+        {/* Equal-width spacer balances the Back IconButton on the left. */}
         <span style={{ width: 44 }} aria-hidden="true" />
       </div>
 
@@ -155,10 +152,6 @@ export default function SmartCameraIntroPage() {
 
       <div className="screen-footer">
         <PillButton onClick={() => navigate("/smart-camera")}>Take 3 selfies</PillButton>
-        {/* "Upload photo" is a secondary action, so it's demoted from
-            a full pill to an inline underlined link — frees the
-            vertical room the second pill used to take and keeps the
-            primary CTA visually unrivalled. */}
         <button
           type="button"
           className="text-link text-link--underline"

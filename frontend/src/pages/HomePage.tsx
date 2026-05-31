@@ -37,10 +37,6 @@ export default function HomePage() {
               justifyContent: "center",
             }}
           >
-            {/* Same four-point sparkle (large + small companion) used
-                as the Insights tab bullet — keeps the brand glyph
-                consistent between the landing screen and the
-                "premium insight" surface inside the report. */}
             <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" style={{ marginLeft: -2 }}>
               <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
               <path d="M11.6 8.4c.15 1.2.65 2 1.8 2.3.1.03.1.17 0 .2-1.15.3-1.65 1.1-1.8 2.3-.15-1.2-.65-2-1.8-2.3-.1-.03-.1-.17 0-.2 1.15-.3 1.65-1.1 1.8-2.3Z" />

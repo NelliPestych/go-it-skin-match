@@ -153,14 +153,9 @@ export default function FaceOvalOverlay({
       const cx = w / 2;
       const rx = Math.min(w * 0.4, h * 0.3);
       const ry = rx * 1.32;
-      // Reserve room at the top of the stage for the guidance headline
-      // + hint pair.  On tall phones the default centre (h * 0.48) sits
-      // comfortably below the text; on mid-height phones (iPhone 6/7/8
-      // and the Plus / 8 Plus class) it would overlap, so we push the
-      // oval down until its top edge clears a fixed header gutter.
-      // A matching bottom-gutter cap keeps the oval visible on very
-      // short stages (iPhone 5/SE) where the unrestricted shift would
-      // push the bottom of the ellipse off-screen.
+      // Push oval down on short stages so it clears the guidance text
+      // at the top; cap from below so the ellipse stays in view on
+      // very short stages (iPhone 5/SE).
       const headerGutter = 90;
       const footerGutter = 16;
       let cy = h * 0.48;
