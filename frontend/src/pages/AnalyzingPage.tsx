@@ -19,6 +19,17 @@ const STEPS = [
   "Finalizing routine map",
 ];
 
+/** Each step ticks at this interval (ms). */
+const STEP_INTERVAL_MS = 800;
+
+/** Minimum time the analyzing screen should stay on the page after
+ *  the user lands, regardless of how fast the backend responds.
+ *  Ensures the last checklist item ("Finalizing routine map") has
+ *  time to flip from `pending` to `done` (the green ✓) before the
+ *  navigation kicks in.  Equals one extra step interval past the
+ *  last `pending` mark — i.e. `(STEPS.length + 1) * STEP_INTERVAL_MS`. */
+const MIN_VISIBLE_MS = (STEPS.length + 1) * STEP_INTERVAL_MS;
+
 export default function AnalyzingPage() {
   const navigate = useNavigate();
   // `quizAnswers` is the new canonical source (filled by `QuizPage`).
@@ -48,12 +59,13 @@ export default function AnalyzingPage() {
 
     let cancelled = false;
     const stepTimers: number[] = [];
+    const mountAt = Date.now();
 
     STEPS.forEach((_, idx) => {
       stepTimers.push(
         window.setTimeout(() => {
           if (!cancelled) setCurrentStep(idx + 1);
-        }, (idx + 1) * 800),
+        }, (idx + 1) * STEP_INTERVAL_MS),
       );
     });
 
@@ -95,8 +107,19 @@ export default function AnalyzingPage() {
           raw_sensitivity: quizAnswers.sensitivity,
         };
         await api.submitQuiz(payload);
-        // ensure the loader plays at least 2.5s for UX
-        await new Promise((r) => setTimeout(r, 2400));
+        // Hold the page open until the four-checkpoint animation has
+        // fully completed (last green ✓ visible) before navigating.
+        // If the network was slow the elapsed budget is already used
+        // up and this resolves immediately; if it was fast we wait
+        // the remainder so the user actually sees the checklist
+        // finish.  Replaces the previous unconditional 2400 ms wait
+        // that, on a fast backend, would redirect before the last
+        // step had a chance to flip from pending → done.
+        const elapsed = Date.now() - mountAt;
+        const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+        if (remaining > 0) {
+          await new Promise((r) => setTimeout(r, remaining));
+        }
         if (!cancelled)
           // `fromAnalyzing` flag tells the Results page this navigation
           // is the user's *first* arrival at this scan, so the page
@@ -137,16 +160,7 @@ export default function AnalyzingPage() {
         </IconButton>
       </div>
 
-      <div
-        className="relative"
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "16px 32px",
-        }}
-      >
+      <div className="relative analyzing-body">
         {error ? (
           <>
             <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>

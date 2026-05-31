@@ -39,7 +39,7 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <div className="screen relative" style={{ background: "var(--bg-results)" }}>
+    <div className="screen relative history-screen" style={{ background: "var(--bg-results)" }}>
       <div className="blob rose-bottom-left" />
       <div className="blob lavender-top-right" />
 
@@ -119,8 +119,6 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
-
-      <div style={{ flex: 1 }} />
 
       <div className="screen-footer relative">
         <PillButton onClick={() => navigate("/capture")} variant="secondary">

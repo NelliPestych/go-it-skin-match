@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
 // `pages/CapturePage.tsx` is intentionally kept on disk as a fallback
@@ -19,9 +20,26 @@ import ResultsPage from "./pages/ResultsPage";
 import HistoryPage from "./pages/HistoryPage";
 import { FlowProvider } from "./state/flow";
 
+/**
+ * Reset the document scroll position to the top whenever the route
+ * changes.  React Router v6 does not do this automatically: between
+ * client-side navigations the browser keeps `window.scrollY`, so a
+ * user who scrolled half-way down the capture page would land on the
+ * next page at that same scrollY.  Listening on `pathname` covers
+ * every entry (push, replace, history back/forward).
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <FlowProvider>
+      <ScrollToTop />
       <div className="mobile-frame">
         <Routes>
           <Route path="/" element={<HomePage />} />

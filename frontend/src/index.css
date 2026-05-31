@@ -879,7 +879,8 @@ select {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: var(--mobile-width);
+  /* Full viewport width on real phones — see .results-sticky for the
+     same rationale.  Desktop-frame cap (375 px) lives below. */
   padding-bottom: max(28px, env(safe-area-inset-bottom));
   /* Pointer events go to the children; the gradient backdrop below
      stays transparent to clicks so taps on the chip row that peek
@@ -1146,6 +1147,18 @@ select {
   position: relative;
 }
 
+/* Main content area — flex column that absorbs the free vertical
+   room between the header and the helper line at the bottom.
+   Inlined as a style block originally; promoted to a class so the
+   media-query overrides below can target it. */
+.analyzing-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px var(--side-margin);
+}
+
 .analyzing-orbit {
   /* Fluid: orbit shrinks below the original 224px on narrow phones
      so the two concentric rings (-1 each side via ::before/::after)
@@ -1262,6 +1275,62 @@ select {
   }
   50% {
     opacity: 1;
+  }
+}
+
+/* Short-viewport polish for the analyzing screen — keeps the entire
+   layout (header → headline → checklist → optional orbit → footer
+   helper) inside one viewport without scroll on iPhone 5/SE-class
+   phones, and avoids feeling cramped on iPhone 8 / mid-height
+   devices.
+
+   ≤ 700 px tall: shrink the decorative orbit so it stops crowding
+   the checklist on mid-height phones.
+   ≤ 640 px tall: hide the orbit entirely, tighten checklist margins
+   and gap so the four progress lines fit comfortably below the
+   headline + subhead. */
+@media (max-height: 760px) {
+  /* Covers iPhone 6/7/8 (667 px), 6/7/8 Plus (736 px) and SE 2nd
+     gen (667 px).  Default 200 px orbit feels too dominant on this
+     class of phones once you add the headline, subhead, four-line
+     checklist and helper line below; this clamp pulls it down. */
+  .analyzing-orbit {
+    width: clamp(120px, 38vw, 150px);
+    margin: 12px auto;
+    font-size: clamp(36px, 11vw, 48px);
+  }
+  .analyzing-orbit::before {
+    inset: calc(-1 * clamp(12px, 4vw, 18px));
+  }
+  .analyzing-orbit::after {
+    inset: calc(-1 * clamp(22px, 8vw, 34px));
+  }
+  .analyzing-body {
+    padding-top: 8px;
+  }
+}
+
+@media (max-height: 640px) {
+  /* Keep the orbit visible on iPhone 5/SE-class viewports — it's
+     the only visual that grounds the page — but shrink it further
+     so the whole layout still fits within 568 px tall. */
+  .analyzing-orbit {
+    width: clamp(90px, 30vw, 110px);
+    margin: 8px auto;
+    font-size: clamp(28px, 9vw, 36px);
+  }
+  .analyzing-orbit::before {
+    inset: calc(-1 * clamp(8px, 3vw, 12px));
+  }
+  .analyzing-orbit::after {
+    inset: calc(-1 * clamp(16px, 6vw, 22px));
+  }
+  .checklist {
+    margin: 12px var(--side-margin);
+    gap: 8px;
+  }
+  .checklist .item {
+    font-size: 10.5px;
   }
 }
 
@@ -1460,6 +1529,46 @@ select {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 24px;
+}
+
+/* History screen — float the "+ New analysis" CTA at the viewport
+   bottom (matches HomePage / ResultsPage / Capture) so the list above
+   can scroll naturally without the last card being hidden under a
+   sticky button.  Reserved bottom padding clears the floating CTA. */
+.history-screen {
+  padding-bottom: 110px;
+}
+
+.history-screen .screen-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  z-index: 5;
+}
+
+@media (min-width: 768px) {
+  .history-screen .screen-footer {
+    max-width: var(--mobile-width);
+  }
+}
+
+/* Soft cream fade above the CTA — same shape as the home page so the
+   button reads cleanly without a hard horizontal edge. */
+.history-screen .screen-footer::before {
+  content: "";
+  position: absolute;
+  inset: -40px 0 0 0;
+  background: linear-gradient(180deg, rgba(250, 249, 246, 0) 0%, var(--bg-results) 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.history-screen .screen-footer > * {
+  pointer-events: auto;
 }
 
 .history-card {
@@ -1786,10 +1895,18 @@ select {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: var(--mobile-width);
+  /* Full viewport width on real phones — see .results-sticky for the
+     same rationale.  Desktop-frame cap (375 px) lives below. */
   padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
   pointer-events: none;
   z-index: 5;
+}
+
+@media (min-width: 768px) {
+  .intro-footer,
+  .intro-instructions-screen .screen-footer {
+    max-width: var(--mobile-width);
+  }
 }
 
 .intro-instructions-screen .screen-footer::before {
@@ -3297,10 +3414,20 @@ select {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: var(--mobile-width);
+  /* No max-width cap on real phones — wider devices (iPhone 14 =
+     390, Pro Max = 430) would otherwise show body-cream gaps on
+     either side of the 375 px-wide bar.  The desktop-frame media
+     query below reinstates the 375 px cap so the floating CTA stays
+     centred inside the simulated phone window on >= 768 px. */
   padding: 14px var(--side-margin) max(18px, env(safe-area-inset-bottom));
   pointer-events: none;
   z-index: 5;
+}
+
+@media (min-width: 768px) {
+  .results-sticky {
+    max-width: var(--mobile-width);
+  }
 }
 
 /* Fade mask extends 80px above the CTA so the bar bg goes from
