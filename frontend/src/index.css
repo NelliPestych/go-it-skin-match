@@ -1253,26 +1253,18 @@ select {
   transition: width 0.6s ease;
 }
 
-/* Brighter mid-pastel fills — saturated enough to read clearly on
-   the light track, but still in the same warm, calm family as the
-   quiz cards (i.e. nothing as clinical as the accent tokens). */
-.profile-row[data-tone="rose"] .meter-fill {
-  background: #fbc8c8;
-}
-.profile-row[data-tone="mint"] .meter-fill {
-  background: #b9ebb5;
-}
-.profile-row[data-tone="cream"] .meter-fill {
-  background: #ffdf9b;
-}
-.profile-row[data-tone="lavender"] .meter-fill {
-  background: #d3c2f3;
-}
-.profile-row[data-tone="sky"] .meter-fill {
-  background: #a4d6f3;
-}
+/* All meter fills share one lavender → rose gradient — the same
+   pastel pair the Profile tab panel uses for its tint.  Per-tone
+   selectors are kept so the markup stays untouched, but they all
+   collapse to the same fill: bars read as one calm, cohesive ribbon
+   that lives inside the panel's own colour story. */
+.profile-row[data-tone="rose"] .meter-fill,
+.profile-row[data-tone="mint"] .meter-fill,
+.profile-row[data-tone="cream"] .meter-fill,
+.profile-row[data-tone="lavender"] .meter-fill,
+.profile-row[data-tone="sky"] .meter-fill,
 .profile-row[data-tone="peach"] .meter-fill {
-  background: #f7c4af;
+  background: linear-gradient(to right, #d3c2f3 0%, #fbc8c8 100%);
 }
 
 /* Soft "Show more" toggle below the metric grid — pill-shaped, low
@@ -2351,7 +2343,6 @@ select {
   margin: 0 calc(-1 * var(--side-margin));
   background: transparent;
   border-radius: 0;
-  border-bottom: 1px solid var(--text-10);
 }
 
 .seg-tab {
@@ -2366,9 +2357,9 @@ select {
   white-space: nowrap;
   color: var(--text-60);
   background: var(--tab-bg, #ece9e0);
-  border: 1px solid transparent;
-  border-bottom: 0;
-  margin-bottom: -1px;
+  /* No border on inactive chips at all — the strip reads as a clean
+     pastel wave with rounded top corners and nothing else. */
+  border: 0;
   position: relative;
   text-align: center;
   transition: filter 0.18s ease, color 0.18s ease;
@@ -2376,12 +2367,31 @@ select {
 
 /* Pastel per tab — picks from the same palette as the quiz cards
    (rose / sky / cream / lavender / mint) so the report feels like
-   a continuation of the rest of the app. */
-.seg-tab#results-tab-profile  { --tab-bg: var(--sky); }
-.seg-tab#results-tab-targets  { --tab-bg: var(--rose); }
-.seg-tab#results-tab-picks    { --tab-bg: var(--cream); }
-.seg-tab#results-tab-routine  { --tab-bg: var(--lavender); }
-.seg-tab#results-tab-insights { --tab-bg: var(--mint); }
+   a continuation of the rest of the app.  Each tab carries a small
+   3-stop gradient that meets the neighbouring tab on the SAME mid
+   colour, so the whole strip reads as one continuous pastel wave
+   even though the chips overlap.  The midpoint colours are the RGB
+   averages of the two pastel neighbours. */
+.seg-tab#results-tab-profile {
+  --tab-bg: var(--lavender);
+  background: linear-gradient(to right, var(--lavender) 0%, var(--lavender) 50%, #f7e7f2 100%);
+}
+.seg-tab#results-tab-targets {
+  --tab-bg: var(--rose);
+  background: linear-gradient(to right, #f7e7f2 0%, var(--rose) 50%, #feedde 100%);
+}
+.seg-tab#results-tab-picks {
+  --tab-bg: var(--cream);
+  background: linear-gradient(to right, #feedde 0%, var(--cream) 50%, #f0f4f2 100%);
+}
+.seg-tab#results-tab-routine {
+  --tab-bg: var(--sky);
+  background: linear-gradient(to right, #f0f4f2 0%, var(--sky) 50%, #e4f7f3 100%);
+}
+.seg-tab#results-tab-insights {
+  --tab-bg: var(--mint);
+  background: linear-gradient(to right, #e4f7f3 0%, var(--mint) 50%, var(--mint) 100%);
+}
 
 /* Slight overlap between adjacent tabs. */
 .seg-tab + .seg-tab {
@@ -2401,13 +2411,26 @@ select {
   color: var(--text);
 }
 
-/* Active tab: solid pastel. Its bottom edge matches the tab-panel's
-   gradient top, so the active tab + its content read as one
-   continuous colored "file". */
+/* Active tab keeps its 3-stop pastel gradient so the strip reads as
+   one continuous wave even on the active chip.  Active state is
+   conveyed via text contrast, a hairline gray border on top and
+   sides (no bottom — the chip merges into the panel below), and a
+   z-index lift.
+
+   `margin-bottom: -1px` makes the active chip's outer box extend
+   exactly 1px past the strip's natural bottom — the same 1px the
+   panel uses for its border-top.  That keeps the chip's vertical
+   side borders ending at the SAME y as the panel border-top, so
+   the L-corner stitches piece-to-piece without a hanging tail.
+   The chip is drawn above the panel (z-index 10), so its bottom
+   1px gradient row also covers any panel-border-top segment that
+   sits directly under the chip. */
 .seg-tab[data-active="true"] {
-  background: var(--tab-bg, var(--bg-results));
   color: var(--text);
-  border-color: var(--text-10);
+  border-top: 1px solid var(--text-10);
+  border-left: 1px solid var(--text-10);
+  border-right: 1px solid var(--text-10);
+  margin-bottom: -1px;
   z-index: 10;
 }
 
@@ -2419,13 +2442,16 @@ select {
 
 /* ── Tab panel ───────────────────────────────────────────── */
 
-/* Each panel is a full-bleed colored "page" that continues the
-   active tab's pastel downward and grows to fill the rest of the
-   available vertical space — so the gradient always fades cleanly
-   into cream within the panel itself, with no visible cream block
-   below it. Negative top/bottom margins swallow the surrounding
-   flex gap so the panel sits flush against the tab strip above and
-   the bottom spacer below. */
+/* Each panel is a full-bleed page that continues its OWN tab's
+   3-stop pastel slice downward.  Two layered backgrounds:
+
+   1. Top layer (vertical) — transparent at the top, fading to the
+      page cream by the bottom, so the panel's tint dissolves into
+      the surrounding cream further down.
+   2. Bottom layer (horizontal) — `--panel-tint` is set per panel id
+      below; it mirrors the active tab's 3-stop chip gradient so the
+      panel only carries that tab's colours (lavender shades for
+      Profile, rose shades for Targets, etc.). */
 .tab-panel {
   display: flex;
   flex-direction: column;
@@ -2434,11 +2460,77 @@ select {
   flex: 1;
   margin: -20px calc(-1 * var(--side-margin));
   padding: 24px var(--side-margin) 28px;
-  background: linear-gradient(
-    180deg,
-    var(--active-tab-bg, transparent) 0%,
-    var(--active-tab-bg, transparent) 78%,
-    var(--bg-results) 100%
+  /* Hairline along the top of the panel.  Combined with the active
+     tab chip's top/left/right borders, it forms the classic "tab
+     folder" outline — the chip's vertical edges meet this line at
+     the chip's bottom corners, while the chip's negative margin
+     hides the segment of this line that runs directly under the
+     chip. */
+  border-top: 1px solid var(--text-10);
+  background:
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 30%,
+      var(--bg-results) 100%
+    ),
+    var(--panel-tint, none);
+}
+
+/* Per-panel tint — the gradient stops are positioned at the EXACT
+   x-positions where the active chip lives (each chip occupies a 20%
+   slot, centred at 10/30/50/70/90% of the strip).  Inside that slot
+   the panel shows the same 3-stop transition as the chip, so the
+   seam directly under the chip is perfectly continuous (no colour
+   jump).  Outside the slot, the gradient just holds at the chip's
+   edge colour — which is also what the neighbouring strip chips
+   use, so the panel reads as one stitched fabric with the strip. */
+#results-panel-profile {
+  --panel-tint: linear-gradient(
+    to right,
+    var(--lavender) 0%,
+    var(--lavender) 10%,
+    #f7e7f2 20%,
+    #f7e7f2 100%
+  );
+}
+#results-panel-targets {
+  --panel-tint: linear-gradient(
+    to right,
+    #f7e7f2 0%,
+    #f7e7f2 20%,
+    var(--rose) 30%,
+    #feedde 40%,
+    #feedde 100%
+  );
+}
+#results-panel-picks {
+  --panel-tint: linear-gradient(
+    to right,
+    #feedde 0%,
+    #feedde 40%,
+    var(--cream) 50%,
+    #f0f4f2 60%,
+    #f0f4f2 100%
+  );
+}
+#results-panel-routine {
+  --panel-tint: linear-gradient(
+    to right,
+    #f0f4f2 0%,
+    #f0f4f2 60%,
+    var(--sky) 70%,
+    #e4f7f3 80%,
+    #e4f7f3 100%
+  );
+}
+#results-panel-insights {
+  --panel-tint: linear-gradient(
+    to right,
+    #e4f7f3 0%,
+    #e4f7f3 80%,
+    var(--mint) 90%,
+    var(--mint) 100%
   );
 }
 
@@ -2614,11 +2706,11 @@ select {
   border-color: var(--text);
 }
 
-/* Active pill picks up the Routine tab's lavender so the switcher
-   feels stitched to the surrounding pastel rather than a foreign
-   black chip.  Dark ink stays the foreground for legibility. */
+/* Active pill picks up the Routine tab's sky so the switcher feels
+   stitched to the surrounding pastel rather than a foreign black
+   chip.  Dark ink stays the foreground for legibility. */
 .period-switch--icon-only .period-switch-btn[data-active="true"] {
-  background: var(--lavender);
+  background: var(--sky);
   color: var(--text);
 }
 

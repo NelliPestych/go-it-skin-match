@@ -26,14 +26,6 @@ const panelId = (t: ResultsTab) => `results-panel-${t}`;
  *  binder dividers feel continuous with the rest of the app. The
  *  active tab passes its color down to the panel via a CSS variable
  *  so the whole "file" (tab + content) looks like one sheet. */
-const TAB_COLOR: Record<ResultsTab, string> = {
-  profile: "var(--sky)",
-  targets: "var(--rose)",
-  picks: "var(--cream)",
-  routine: "var(--lavender)",
-  insights: "var(--mint)",
-};
-
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
   cleanser: "🧴",
@@ -277,10 +269,7 @@ export default function ResultsPage() {
         </IconButton>
       </div>
 
-      <main
-        className="results-body"
-        style={{ ["--active-tab-bg" as string]: TAB_COLOR[tab] }}
-      >
+      <main className="results-body">
         <section className="results-summary">
           <div className="results-summary-glow" aria-hidden="true" />
           <div className="results-summary-row">
