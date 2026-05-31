@@ -67,7 +67,7 @@ export default function HomePage() {
           <span className="intro-headline-em">decoded.</span>
         </h1>
         <p className="intro-subhead">
-          Snap a selfie, answer a few questions — get a routine made for your
+          Snap a selfie, answer a few questions – get a routine made for your
           skin.
         </p>
       </div>
