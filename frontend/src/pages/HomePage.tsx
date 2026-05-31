@@ -27,8 +27,8 @@ export default function HomePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
           <span
             style={{
-              width: 32,
-              height: 32,
+              width: 35,
+              height: 35,
               borderRadius: 9999,
               background: "var(--rose)",
               color: "var(--text)",

@@ -88,7 +88,7 @@ export default function SmartCameraIntroPage() {
   };
 
   return (
-    <div className="screen">
+    <div className="screen intro-instructions-screen">
       {/* Hidden picker triggered by "Upload photo" — the existing
           manual-upload flow with no extra screen. */}
       <input
@@ -111,20 +111,21 @@ export default function SmartCameraIntroPage() {
             />
           </svg>
         </IconButton>
-        <span style={{ width: 40 }} />
-        <span style={{ width: 40 }} />
+        {/* "AI Skin Scan" eyebrow lives in the header so the body copy
+            below starts straight with the headline.  An equal-width
+            spacer on the right balances the Back IconButton so the
+            badge centres precisely between them. */}
+        <span className="badge-pill">AI Skin Scan</span>
+        <span style={{ width: 44 }} aria-hidden="true" />
       </div>
 
       <div className="screen-pad" style={{ marginTop: 8 }}>
-        <span className="badge-pill" style={{ marginBottom: 12 }}>
-          AI Skin Scan
-        </span>
         <h1 className="h1" style={{ marginBottom: 12 }}>
           Take 3 selfies
           <br />
           for your skin analysis
         </h1>
-        <p className="body" style={{ marginBottom: 24 }}>
+        <p className="body" style={{ marginBottom: 12 }}>
           Front, left and right shots help our AI capture your full skin profile.
         </p>
       </div>
@@ -152,15 +153,20 @@ export default function SmartCameraIntroPage() {
 
       {error && <div className="error">{error}</div>}
 
-      <div style={{ flex: 1, minHeight: 16 }} />
-
       <div className="screen-footer">
         <PillButton onClick={() => navigate("/smart-camera")}>Take 3 selfies</PillButton>
-        <div style={{ height: 12 }} />
-        <PillButton variant="secondary" onClick={onPickFile}>
+        {/* "Upload photo" is a secondary action, so it's demoted from
+            a full pill to an inline underlined link — frees the
+            vertical room the second pill used to take and keeps the
+            primary CTA visually unrivalled. */}
+        <button
+          type="button"
+          className="text-link text-link--underline"
+          onClick={onPickFile}
+          style={{ display: "block", margin: "10px auto 0" }}
+        >
           Upload photo
-        </PillButton>
-        <div className="helper">By continuing, you agree to our Terms of Service</div>
+        </button>
       </div>
     </div>
   );

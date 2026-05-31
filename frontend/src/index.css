@@ -186,6 +186,17 @@ select {
   margin: 0;
 }
 
+/* Smaller title on short viewports — Playfair stays large enough to
+   read as a hero serif, but the lower body-to-h1 ratio claws back
+   ~12-16 px on a two-line headline like "Take 3 selfies / for your
+   skin analysis". */
+@media (max-height: 640px) {
+  .h1 {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+}
+
 .h2 {
   font-family: "Playfair Display", serif;
   font-weight: 400;
@@ -899,11 +910,12 @@ select {
   padding-bottom: 110px;
 }
 
-/* Tighter header on the landing screen — `clamp` shrinks the bottom
-   padding on short viewports to claw back vertical room for the hero
-   and copy below.  Top padding keeps its safe-area floor so the notch
-   is still respected. */
-.intro-screen .app-header {
+/* Tighter header on the landing and capture-intro screens — `clamp`
+   shrinks the bottom padding on short viewports to claw back vertical
+   room for the content below.  Top padding keeps its safe-area floor
+   so the notch is still respected. */
+.intro-screen .app-header,
+.intro-instructions-screen .app-header {
   padding-bottom: clamp(12px, 3vh, 24px);
 }
 
@@ -911,7 +923,8 @@ select {
    bottom padding to a hard 6 px so the layout has noticeably more
    room for the hero / copy / chips / CTA stack. */
 @media (max-height: 640px) {
-  .intro-screen .app-header {
+  .intro-screen .app-header,
+  .intro-instructions-screen .app-header {
     padding-bottom: 6px;
   }
   /* Trim the bottom spacer to match the new CTA height. */
@@ -1525,6 +1538,15 @@ select {
   color: var(--text);
 }
 
+/* Underline modifier — used where the link needs to clearly read as
+   a tappable text link rather than a plain caption (e.g. the demoted
+   "Upload photo" secondary action on the capture intro screen). */
+.text-link--underline {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
 .card-empty {
   background: var(--surface);
   border: 1px dashed var(--text-10);
@@ -1686,6 +1708,43 @@ select {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
+/* Short-viewport adaptation for the whole SmartCamera surface.  Tight
+   paddings on every chrome strip (status panel, progress dots, footer)
+   give the camera stage every spare pixel — face-oval framing breaks
+   down quickly when the live preview goes under ~320 px tall. */
+@media (max-height: 640px) {
+  .sc-status-panel {
+    padding: 8px 14px;
+  }
+  .sc-progress {
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+  .sc-progress-dot {
+    width: 32px;
+    height: 32px;
+  }
+  .sc-progress-dot[data-state="active"] {
+    width: 38px;
+    height: 38px;
+  }
+  .sc-progress-dot svg {
+    width: 16px;
+    height: 16px;
+  }
+  .sc-progress-dot[data-state="active"] svg {
+    width: 18px;
+    height: 18px;
+  }
+  .sc-footer {
+    padding: 10px var(--side-margin) max(16px, env(safe-area-inset-bottom));
+  }
+  .sc-fallback {
+    height: 40px;
+    font-size: 12px;
+  }
+}
+
 .sc-fallback:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.5);
@@ -1698,6 +1757,64 @@ select {
 
 .intro-instructions {
   padding: 16px var(--side-margin) 8px;
+}
+
+/* On short viewports, tighten the instructions list itself so the
+   four rules fit closer together: less outer padding, smaller per-
+   item top/bottom padding, slightly tighter eyebrow margin. */
+@media (max-height: 640px) {
+  .intro-instructions {
+    padding: 6px var(--side-margin) 0;
+  }
+  .intro-instruction {
+    padding: 8px 0;
+  }
+}
+
+/* Capture-intro screen: float the dual-CTA footer at the viewport
+   bottom (same pattern as the landing screen and ResultsPage) so the
+   four pre-shot rules can scroll above it on short phones without
+   pushing the CTAs off-screen.  The content area gets enough bottom
+   padding to clear the floating footer. */
+.intro-instructions-screen {
+  padding-bottom: 140px;
+}
+
+.intro-instructions-screen .screen-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--mobile-width);
+  padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  z-index: 5;
+}
+
+.intro-instructions-screen .screen-footer::before {
+  content: "";
+  position: absolute;
+  /* Taller fade on this page (60 px vs the home page's 24 px) — the
+     instructions list scrolls under the footer, and a longer gradient
+     hides the moving content under the CTA more gracefully. */
+  inset: -60px 0 0 0;
+  background: linear-gradient(180deg, rgba(249, 247, 242, 0) 0%, var(--bg-cream) 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.intro-instructions-screen .screen-footer > * {
+  pointer-events: auto;
+}
+
+/* On short viewports (iPhone 5/SE), the CTA pill shrinks (driven by
+   the global `.pill-btn` short-viewport rule) so the spacer beneath
+   the content can shrink too. */
+@media (max-height: 640px) {
+  .intro-instructions-screen {
+    padding-bottom: 118px;
+  }
 }
 
 .intro-instruction {
@@ -1843,20 +1960,27 @@ select {
    Kept above 4 % so the headline never bleeds onto the oval rim. */
 .sc-guidance {
   position: absolute;
-  top: 2.5%;
+  /* Pulled higher (was 2.5 %) so the two-line "Center your face" /
+     hint pair has visible room above the face oval on portrait
+     phones — the oval starts ~14 % from the stage top and the
+     guidance block needs to clear that. */
+  top: 1%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
   pointer-events: none;
   z-index: 4;
-  padding: 0 32px;
-  max-width: 90%;
+  /* Tighter inner gutter so the headline ("CENTER YOUR FACE") fits
+     on a single line at every mobile width, freeing one full line
+     of vertical room. */
+  padding: 0 16px;
+  max-width: 92%;
 }
 
 .sc-guidance-text {
   font-family: "Inter", sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.2;
   letter-spacing: 0.4px;
   color: #fff;
@@ -1865,11 +1989,46 @@ select {
 }
 
 .sc-guidance-hint {
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Narrow-viewport adaptation — single-line chip labels, slimmer
+   status-panel sides, tighter guidance gutters.  Targets phones at
+   or below 360 px wide (Galaxy S8 / S20 minis / iPhone 5/SE).  Lives
+   AFTER the base rules above so the cascade lets it override them
+   for narrow viewports (same specificity but later wins). */
+@media (max-width: 360px) {
+  .sc-status-panel {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .sc-chips {
+    gap: 4px;
+  }
+  .sc-chip {
+    font-size: 9px;
+    padding: 8px 4px;
+    letter-spacing: 0.4px;
+  }
+  /* Drop the side padding to zero so "CENTER YOUR FACE" has the full
+     stage width to lay out on a single line at 320 px — the headline
+     + hint pair takes the least possible vertical room above the
+     face oval. */
+  .sc-guidance {
+    padding: 0;
+    max-width: 100%;
+  }
+  .sc-guidance-text {
+    font-size: 13px;
+    letter-spacing: 0.3px;
+  }
+  .sc-guidance-hint {
+    font-size: 10.5px;
+  }
 }
 
 
@@ -1884,13 +2043,12 @@ select {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-family: "Playfair Display", serif;
+  font-family: "Inter", sans-serif;
   font-weight: 600;
   /* Fluid by both width AND height (min() inside clamp) so the
      digit fits the oval on narrow portrait phones, doesn't balloon
-     in landscape (where 28vw would otherwise approach 224px), and
-     still feels cinematic at 414+ portrait (132px). */
-  font-size: clamp(72px, min(28vw, 22dvh), 132px);
+     in landscape, and still reads cinematic on larger phones. */
+  font-size: clamp(48px, min(18vw, 14dvh), 88px);
   line-height: 1;
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
