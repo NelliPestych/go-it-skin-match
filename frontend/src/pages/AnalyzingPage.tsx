@@ -19,15 +19,9 @@ const STEPS = [
   "Finalizing routine map",
 ];
 
-/** Each step ticks at this interval (ms). */
 const STEP_INTERVAL_MS = 800;
-
-/** Minimum time the analyzing screen should stay on the page after
- *  the user lands, regardless of how fast the backend responds.
- *  Ensures the last checklist item ("Finalizing routine map") has
- *  time to flip from `pending` to `done` (the green ✓) before the
- *  navigation kicks in.  Equals one extra step interval past the
- *  last `pending` mark — i.e. `(STEPS.length + 1) * STEP_INTERVAL_MS`. */
+/** Hold the page open long enough for the last checklist item to flip
+ *  to the green ✓ before navigating, regardless of backend speed. */
 const MIN_VISIBLE_MS = (STEPS.length + 1) * STEP_INTERVAL_MS;
 
 export default function AnalyzingPage() {
@@ -107,25 +101,15 @@ export default function AnalyzingPage() {
           raw_sensitivity: quizAnswers.sensitivity,
         };
         await api.submitQuiz(payload);
-        // Hold the page open until the four-checkpoint animation has
-        // fully completed (last green ✓ visible) before navigating.
-        // If the network was slow the elapsed budget is already used
-        // up and this resolves immediately; if it was fast we wait
-        // the remainder so the user actually sees the checklist
-        // finish.  Replaces the previous unconditional 2400 ms wait
-        // that, on a fast backend, would redirect before the last
-        // step had a chance to flip from pending → done.
+        // Wait for the checklist animation to finish before redirecting.
         const elapsed = Date.now() - mountAt;
         const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
         if (remaining > 0) {
           await new Promise((r) => setTimeout(r, remaining));
         }
         if (!cancelled)
-          // `fromAnalyzing` flag tells the Results page this navigation
-          // is the user's *first* arrival at this scan, so the page
-          // can show the one-time "Saved to your history" toast.
-          // ResultsPage clears the flag immediately after reading it
-          // so a refresh does not replay the toast.
+          // `fromAnalyzing` flag drives the one-time "Saved to your
+          // history" toast on ResultsPage.
           navigate(`/results/${upload.analysis_id}`, {
             replace: true,
             state: { fromAnalyzing: true },

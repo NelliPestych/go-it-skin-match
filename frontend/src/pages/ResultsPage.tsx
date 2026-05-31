@@ -282,12 +282,6 @@ export default function ResultsPage() {
             >
               <svg viewBox="0 0 80 80" width="80" height="80">
                 <defs>
-                  {/* Pastel 5-stop rainbow — same family the Profile
-                      meter fills use.  Diagonal sweep so the colors
-                      flow around the ring rather than landing as a
-                      vertical band.  Tier-specific overrides are no
-                      longer applied because the gradient is intended
-                      to be the same calm pastel arc at every score. */}
                   <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#b9ebb5" />
                     <stop offset="25%" stopColor="#ffdf9b" />
@@ -413,11 +407,6 @@ export default function ResultsPage() {
         >
           <div className="recos-head">
             <h2 className="recos-title">Recommended</h2>
-            {/* Only render the link when a focus chip is active, so
-                the default state stays clean — no disabled "See all"
-                slot to confuse the user about whether anything is
-                filtered.  The button does exactly one thing: clear
-                the current Targets filter. */}
             {activeTarget && (
               <button
                 type="button"
@@ -524,11 +513,6 @@ export default function ResultsPage() {
             aria-labelledby={tabId("routine")}
             hidden={tab !== "routine"}
           >
-            {/* Title is a separate node that swaps text dynamically;
-                the switcher itself is icon-only (sun / moon).  Keeps
-                the active period legible at a glance without the
-                duplication of seeing the same word in the title and
-                inside the pill button. */}
             <div className="routine-header">
               <h3 className="routine-period-title">
                 {routinePeriod === "morning" ? "Morning" : "Evening"}
@@ -548,8 +532,6 @@ export default function ResultsPage() {
                   onClick={() => setRoutinePeriod("morning")}
                 >
                   <span className="period-switch-icon" aria-hidden="true">
-                    {/* Sun — central disc + eight short rays.  Stroke
-                        is currentColor so it follows button state. */}
                     <svg
                       width="16"
                       height="16"
@@ -574,8 +556,6 @@ export default function ResultsPage() {
                   onClick={() => setRoutinePeriod("evening")}
                 >
                   <span className="period-switch-icon" aria-hidden="true">
-                    {/* Crescent moon — single closed path, slight tilt
-                        for a more designed feel than a pure D-shape. */}
                     <svg
                       width="16"
                       height="16"
@@ -656,9 +636,6 @@ export default function ResultsPage() {
           <ul className="insights-list">
             {insights.map((line, idx) => (
               <li key={idx} className="insights-item">
-                {/* Four-point sparkle — reads as polish / AI insight
-                    rather than a generic list dot.  Currentcolor so
-                    we can recolor per-tab later without touching JSX. */}
                 <span className="insights-bullet" aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
                     <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
@@ -678,9 +655,6 @@ export default function ResultsPage() {
         {showSavedToast && (
           <div className="results-saved" aria-hidden="true">
             <span className="results-saved-check">
-              {/* Path-length normalised to 100 so the CSS dasharray
-                  animation doesn't need to know the actual geometry —
-                  going from 100 to 0 draws the check end-to-end. */}
               <svg
                 width="10"
                 height="10"

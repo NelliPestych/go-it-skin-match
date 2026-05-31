@@ -82,10 +82,6 @@ body,
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-cream);
-  /* Clip any accidental horizontal overflow at the document level so
-     swiping the Picks carousel (or any other horizontal scroller)
-     never bleeds into a page-level horizontal scroll that exposes
-     the body background on the right edge. */
   overflow-x: hidden;
 }
 
@@ -119,12 +115,8 @@ select {
 
 .mobile-frame {
   width: 100%;
-  /* On real mobile devices we let the frame fill the viewport so
-     wider phones (iPhone 12/13/14 ≈ 390px, Pro Max ≈ 414–430px,
-     most Androids 393–412px) don't show cream stripes on either
-     side of the content.  The 375px cap is reintroduced inside the
-     desktop-preview media query below, where the frame intentionally
-     becomes a stylised iPhone-sized window. */
+  /* Full viewport on real phones; capped to the 375 px desktop frame
+     inside the >=768 px media query below. */
   max-width: none;
   min-height: 100vh;
   min-height: 100dvh;
@@ -868,30 +860,18 @@ select {
   line-height: 1;
 }
 
-/* Footer tweaks unique to the landing screen.  The CTA is fixed at
-   the viewport bottom (like the Shop CTA on ResultsPage) so it stays
-   visible even when content overflows due to translation, font-size
-   zoom, or extra benefit chips landing on a second row.  Centered
-   horizontally to the same column the mobile frame uses. */
+/* Floating CTA at the viewport bottom on the landing screen. */
 .intro-footer {
   position: fixed;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  /* Full viewport width on real phones — see .results-sticky for the
-     same rationale.  Desktop-frame cap (375 px) lives below. */
   padding-bottom: max(28px, env(safe-area-inset-bottom));
-  /* Pointer events go to the children; the gradient backdrop below
-     stays transparent to clicks so taps on the chip row that peek
-     under the CTA still register on the chip, not the footer wrap. */
   pointer-events: none;
   z-index: 5;
 }
 
-/* Soft cream fade above the CTA — shorter than the ResultsPage
-   variant (40 px instead of 80 px) so the chip row right above stays
-   fully legible and doesn't read as "washed out" under the gradient. */
 .intro-footer::before {
   content: "";
   position: absolute;
@@ -905,24 +885,17 @@ select {
   pointer-events: auto;
 }
 
-/* Reserve room under the fixed CTA so the chips row doesn't slide
-   under the button on short viewports. */
+/* Bottom padding clears the fixed CTA. */
 .intro-screen {
   padding-bottom: 110px;
 }
 
-/* Tighter header on the landing and capture-intro screens — `clamp`
-   shrinks the bottom padding on short viewports to claw back vertical
-   room for the content below.  Top padding keeps its safe-area floor
-   so the notch is still respected. */
+/* Tighter header bottom padding on short viewports. */
 .intro-screen .app-header,
 .intro-instructions-screen .app-header {
   padding-bottom: clamp(12px, 3vh, 24px);
 }
 
-/* iPhone 5/SE-class viewports (≤ 640 px tall): drop the header's
-   bottom padding to a hard 6 px so the layout has noticeably more
-   room for the hero / copy / chips / CTA stack. */
 @media (max-height: 640px) {
   .intro-screen .app-header,
   .intro-instructions-screen .app-header {
@@ -934,9 +907,7 @@ select {
   }
 }
 
-/* Compact CTA on short viewports — shorter pill + tighter type keeps
-   the primary action proportionate to small-screen layouts on every
-   page (intro, quiz, capture, results, etc.). */
+/* Compact CTA on short viewports. */
 @media (max-height: 640px) {
   .pill-btn {
     height: 48px;
@@ -945,12 +916,7 @@ select {
   }
 }
 
-/* Narrow viewports (≤ 400 px wide): drop the global side-margin
-   token from 32 px to 20 px so every page that pads against it (the
-   header, screen-pad, section margins, tab panels, etc.) gains an
-   extra ~24 px of content width.  Negative-margin "break out of
-   padding" tricks follow automatically because they reference the
-   same variable. */
+/* Narrow viewports: tighter global side margins. */
 @media (max-width: 400px) {
   :root {
     --side-margin: 20px;
@@ -1147,10 +1113,6 @@ select {
   position: relative;
 }
 
-/* Main content area — flex column that absorbs the free vertical
-   room between the header and the helper line at the bottom.
-   Inlined as a style block originally; promoted to a class so the
-   media-query overrides below can target it. */
 .analyzing-body {
   flex: 1;
   display: flex;
@@ -1278,22 +1240,8 @@ select {
   }
 }
 
-/* Short-viewport polish for the analyzing screen — keeps the entire
-   layout (header → headline → checklist → optional orbit → footer
-   helper) inside one viewport without scroll on iPhone 5/SE-class
-   phones, and avoids feeling cramped on iPhone 8 / mid-height
-   devices.
-
-   ≤ 700 px tall: shrink the decorative orbit so it stops crowding
-   the checklist on mid-height phones.
-   ≤ 640 px tall: hide the orbit entirely, tighten checklist margins
-   and gap so the four progress lines fit comfortably below the
-   headline + subhead. */
+/* Short-viewport polish for the analyzing screen. */
 @media (max-height: 760px) {
-  /* Covers iPhone 6/7/8 (667 px), 6/7/8 Plus (736 px) and SE 2nd
-     gen (667 px).  Default 200 px orbit feels too dominant on this
-     class of phones once you add the headline, subhead, four-line
-     checklist and helper line below; this clamp pulls it down. */
   .analyzing-orbit {
     width: clamp(120px, 38vw, 150px);
     margin: 12px auto;
@@ -1311,9 +1259,6 @@ select {
 }
 
 @media (max-height: 640px) {
-  /* Keep the orbit visible on iPhone 5/SE-class viewports — it's
-     the only visual that grounds the page — but shrink it further
-     so the whole layout still fits within 568 px tall. */
   .analyzing-orbit {
     width: clamp(90px, 30vw, 110px);
     margin: 8px auto;
@@ -1531,10 +1476,7 @@ select {
   padding-bottom: 24px;
 }
 
-/* History screen — float the "+ New analysis" CTA at the viewport
-   bottom (matches HomePage / ResultsPage / Capture) so the list above
-   can scroll naturally without the last card being hidden under a
-   sticky button.  Reserved bottom padding clears the floating CTA. */
+/* History screen — floating CTA + reserved bottom space. */
 .history-screen {
   padding-bottom: 110px;
 }
@@ -1556,8 +1498,6 @@ select {
   }
 }
 
-/* Soft cream fade above the CTA — same shape as the home page so the
-   button reads cleanly without a hard horizontal edge. */
 .history-screen .screen-footer::before {
   content: "";
   position: absolute;
@@ -1817,10 +1757,7 @@ select {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-/* Short-viewport adaptation for the whole SmartCamera surface.  Tight
-   paddings on every chrome strip (status panel, progress dots, footer)
-   give the camera stage every spare pixel — face-oval framing breaks
-   down quickly when the live preview goes under ~320 px tall. */
+/* Short-viewport adaptation for the SmartCamera surface. */
 @media (max-height: 640px) {
   .sc-status-panel {
     padding: 8px 14px;
@@ -1880,11 +1817,7 @@ select {
   }
 }
 
-/* Capture-intro screen: float the dual-CTA footer at the viewport
-   bottom (same pattern as the landing screen and ResultsPage) so the
-   four pre-shot rules can scroll above it on short phones without
-   pushing the CTAs off-screen.  The content area gets enough bottom
-   padding to clear the floating footer. */
+/* Capture-intro screen: floating CTA at the viewport bottom. */
 .intro-instructions-screen {
   padding-bottom: 140px;
 }
@@ -1895,8 +1828,6 @@ select {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  /* Full viewport width on real phones — see .results-sticky for the
-     same rationale.  Desktop-frame cap (375 px) lives below. */
   padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
   pointer-events: none;
   z-index: 5;
@@ -1912,9 +1843,6 @@ select {
 .intro-instructions-screen .screen-footer::before {
   content: "";
   position: absolute;
-  /* Taller fade on this page (60 px vs the home page's 24 px) — the
-     instructions list scrolls under the footer, and a longer gradient
-     hides the moving content under the CTA more gracefully. */
   inset: -60px 0 0 0;
   background: linear-gradient(180deg, rgba(249, 247, 242, 0) 0%, var(--bg-cream) 60%);
   pointer-events: none;
@@ -2077,19 +2005,12 @@ select {
    Kept above 4 % so the headline never bleeds onto the oval rim. */
 .sc-guidance {
   position: absolute;
-  /* Pulled higher (was 2.5 %) so the two-line "Center your face" /
-     hint pair has visible room above the face oval on portrait
-     phones — the oval starts ~14 % from the stage top and the
-     guidance block needs to clear that. */
   top: 1%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
   pointer-events: none;
   z-index: 4;
-  /* Tighter inner gutter so the headline ("CENTER YOUR FACE") fits
-     on a single line at every mobile width, freeing one full line
-     of vertical room. */
   padding: 0 16px;
   max-width: 92%;
 }
@@ -2113,11 +2034,8 @@ select {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
-/* Narrow-viewport adaptation — single-line chip labels, slimmer
-   status-panel sides, tighter guidance gutters.  Targets phones at
-   or below 360 px wide (Galaxy S8 / S20 minis / iPhone 5/SE).  Lives
-   AFTER the base rules above so the cascade lets it override them
-   for narrow viewports (same specificity but later wins). */
+/* Narrow viewports (≤ 360 px wide) — placed after the base rules so
+   the cascade lets these overrides win. */
 @media (max-width: 360px) {
   .sc-status-panel {
     padding-left: 10px;
@@ -2131,10 +2049,6 @@ select {
     padding: 8px 4px;
     letter-spacing: 0.4px;
   }
-  /* Drop the side padding to zero so "CENTER YOUR FACE" has the full
-     stage width to lay out on a single line at 320 px — the headline
-     + hint pair takes the least possible vertical room above the
-     face oval. */
   .sc-guidance {
     padding: 0;
     max-width: 100%;
@@ -2162,9 +2076,6 @@ select {
   transform: translate(-50%, -50%);
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  /* Fluid by both width AND height (min() inside clamp) so the
-     digit fits the oval on narrow portrait phones, doesn't balloon
-     in landscape, and still reads cinematic on larger phones. */
   font-size: clamp(48px, min(18vw, 14dvh), 88px);
   line-height: 1;
   color: rgba(255, 255, 255, 0.95);
@@ -3414,11 +3325,6 @@ select {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  /* No max-width cap on real phones — wider devices (iPhone 14 =
-     390, Pro Max = 430) would otherwise show body-cream gaps on
-     either side of the 375 px-wide bar.  The desktop-frame media
-     query below reinstates the 375 px cap so the floating CTA stays
-     centred inside the simulated phone window on >= 768 px. */
   padding: 14px var(--side-margin) max(18px, env(safe-area-inset-bottom));
   pointer-events: none;
   z-index: 5;
