@@ -97,7 +97,16 @@ export default function AnalyzingPage() {
         await api.submitQuiz(payload);
         // ensure the loader plays at least 2.5s for UX
         await new Promise((r) => setTimeout(r, 2400));
-        if (!cancelled) navigate(`/results/${upload.analysis_id}`, { replace: true });
+        if (!cancelled)
+          // `fromAnalyzing` flag tells the Results page this navigation
+          // is the user's *first* arrival at this scan, so the page
+          // can show the one-time "Saved to your history" toast.
+          // ResultsPage clears the flag immediately after reading it
+          // so a refresh does not replay the toast.
+          navigate(`/results/${upload.analysis_id}`, {
+            replace: true,
+            state: { fromAnalyzing: true },
+          });
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Analysis failed");
       }

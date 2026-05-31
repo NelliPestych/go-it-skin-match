@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
@@ -26,14 +26,6 @@ const panelId = (t: ResultsTab) => `results-panel-${t}`;
  *  binder dividers feel continuous with the rest of the app. The
  *  active tab passes its color down to the panel via a CSS variable
  *  so the whole "file" (tab + content) looks like one sheet. */
-const TAB_COLOR: Record<ResultsTab, string> = {
-  profile: "var(--sky)",
-  targets: "var(--rose)",
-  picks: "var(--cream)",
-  routine: "var(--lavender)",
-  insights: "var(--mint)",
-};
-
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
   cleanser: "🧴",
@@ -82,6 +74,7 @@ function pickConfidence(features: SkinFeatures, metrics: AIMetricsView | null | 
 
 export default function ResultsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { analysisId } = useParams();
   const id = Number(analysisId);
   const [recos, setRecos] = useState<RecommendationItem[] | null>(null);
@@ -95,6 +88,57 @@ export default function ResultsPage() {
   const [activeTarget, setActiveTarget] = useState<FocusArea | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [metersIn, setMetersIn] = useState(false);
+  // Saved-toast gating: show only on the *very first* time the user
+  // lands on a given /results/:id.  Subsequent loads (reload, deep
+  // link, History tap) skip it.  Stored per-analysisId in localStorage
+  // so it survives across tabs and browser restarts.
+  const [showSavedToast, setShowSavedToast] = useState(false);
+
+  // Drag-to-scroll wiring for the Picks carousel on mouse devices.
+  // Native touch keeps its own momentum scroll (we only intercept
+  // mouse / pen pointers); the `dragMoved` ref lets the card click
+  // handler bail out when the user was actually dragging rather
+  // than tapping (so the click-to-scroll behaviour doesn't fire on
+  // the end of a drag gesture).
+  const recoRowRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    active: false,
+    startX: 0,
+    scrollStart: 0,
+    moved: 0,
+  });
+
+  const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return; // let native pan-x handle touch
+    const row = recoRowRef.current;
+    if (!row) return;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      scrollStart: row.scrollLeft,
+      moved: 0,
+    };
+    row.setPointerCapture(e.pointerId);
+  };
+
+  const onRowPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const row = recoRowRef.current;
+    if (!row) return;
+    const dx = e.clientX - dragRef.current.startX;
+    dragRef.current.moved = Math.max(dragRef.current.moved, Math.abs(dx));
+    row.scrollLeft = dragRef.current.scrollStart - dx;
+  };
+
+  const onRowPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    try {
+      recoRowRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // pointerId may already be released by the browser — ignore
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -124,6 +168,23 @@ export default function ResultsPage() {
     const t = requestAnimationFrame(() => setMetersIn(true));
     return () => cancelAnimationFrame(t);
   }, [features]);
+
+  // Toast appears ONLY when the user arrived directly from the
+  // /analyzing flow (AnalyzingPage navigates with `fromAnalyzing:
+  // true` in the router state).  History-tap and direct-link arrivals
+  // have no flag and skip the toast entirely.  After reading it once
+  // we strip the flag from the history entry via navigate-replace so
+  // a hard refresh on the same URL doesn't replay the toast.
+  useEffect(() => {
+    const state = location.state as { fromAnalyzing?: boolean } | null;
+    if (state?.fromAnalyzing) {
+      setShowSavedToast(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // We deliberately depend only on the pathname — re-running on
+    // state-object identity would clear the flag before we read it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const profile = useMemo(
     () => (features ? buildSkinProfile(features, aiMetrics) : []),
@@ -208,10 +269,7 @@ export default function ResultsPage() {
         </IconButton>
       </div>
 
-      <main
-        className="results-body"
-        style={{ ["--active-tab-bg" as string]: TAB_COLOR[tab] }}
-      >
+      <main className="results-body">
         <section className="results-summary">
           <div className="results-summary-glow" aria-hidden="true" />
           <div className="results-summary-row">
@@ -224,9 +282,18 @@ export default function ResultsPage() {
             >
               <svg viewBox="0 0 80 80" width="80" height="80">
                 <defs>
+                  {/* Pastel 5-stop rainbow — same family the Profile
+                      meter fills use.  Diagonal sweep so the colors
+                      flow around the ring rather than landing as a
+                      vertical band.  Tier-specific overrides are no
+                      longer applied because the gradient is intended
+                      to be the same calm pastel arc at every score. */}
                   <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="var(--score-grad-from)" />
-                    <stop offset="100%" stopColor="var(--score-grad-to)" />
+                    <stop offset="0%" stopColor="#b9ebb5" />
+                    <stop offset="25%" stopColor="#ffdf9b" />
+                    <stop offset="50%" stopColor="#fbc8c8" />
+                    <stop offset="75%" stopColor="#c8b3f0" />
+                    <stop offset="100%" stopColor="#a4d6f3" />
                   </linearGradient>
                 </defs>
                 <circle
@@ -346,14 +413,20 @@ export default function ResultsPage() {
         >
           <div className="recos-head">
             <h2 className="recos-title">Recommended</h2>
-            <button
-              type="button"
-              className="recos-link"
-              onClick={() => setActiveTarget(null)}
-              disabled={!activeTarget}
-            >
-              {activeTarget ? "Clear filter" : "See all"}
-            </button>
+            {/* Only render the link when a focus chip is active, so
+                the default state stays clean — no disabled "See all"
+                slot to confuse the user about whether anything is
+                filtered.  The button does exactly one thing: clear
+                the current Targets filter. */}
+            {activeTarget && (
+              <button
+                type="button"
+                className="recos-link"
+                onClick={() => setActiveTarget(null)}
+              >
+                Clear filter
+              </button>
+            )}
           </div>
           <p className="recos-tag">
             {activeTarget ? `Picks for ${activeTarget.toLowerCase()}.` : recoTagline}
@@ -381,9 +454,46 @@ export default function ResultsPage() {
                 : "No products matched your profile yet — try adjusting your concerns."}
             </p>
           ) : (
-            <div className="reco-row">
+            <div
+              className="reco-row"
+              ref={recoRowRef}
+              onPointerDown={onRowPointerDown}
+              onPointerMove={onRowPointerMove}
+              onPointerUp={onRowPointerUp}
+              onPointerCancel={onRowPointerUp}
+            >
               {filteredRecos.map((item, idx) => (
-                <article className="reco-card" key={item.product.id}>
+                <button
+                  type="button"
+                  className="reco-card"
+                  key={item.product.id}
+                  // Tapping a card scrolls it to the start of the
+                  // carousel.  We scroll the row element directly
+                  // (instead of calling card.scrollIntoView) because
+                  // scrollIntoView walks up scrollable ancestors and
+                  // can set the body's scrollLeft on narrow
+                  // viewports — that displaces the whole mobile
+                  // frame horizontally and exposes a strip of body
+                  // background on the right.  Direct scrollTo on the
+                  // row contains the scroll exclusively to the
+                  // carousel.  We suppress this when the click was
+                  // actually the tail end of a drag gesture (>5px
+                  // movement) so releasing the mouse after a drag
+                  // doesn't snap the row around.
+                  onClick={(e) => {
+                    if (dragRef.current.moved > 5) {
+                      dragRef.current.moved = 0;
+                      return;
+                    }
+                    const row = recoRowRef.current;
+                    if (!row) return;
+                    // 20px matches .reco-row's scroll-padding-left so
+                    // the card lands at the same inset as the heading.
+                    const target = e.currentTarget.offsetLeft - 20;
+                    row.scrollTo({ left: target, behavior: "smooth" });
+                  }}
+                  aria-label={`${item.product.brand} ${item.product.name}, $${item.product.price.toFixed(2)}`}
+                >
                   <div
                     className="reco-image"
                     style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}
@@ -400,7 +510,7 @@ export default function ResultsPage() {
                     )}
                     <span className="reco-price">${item.product.price.toFixed(2)}</span>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           )}
@@ -414,29 +524,72 @@ export default function ResultsPage() {
             aria-labelledby={tabId("routine")}
             hidden={tab !== "routine"}
           >
-            <div className="period-switch" role="tablist" aria-label="Time of day">
-              <button
-                type="button"
-                role="tab"
-                className="period-switch-btn"
-                aria-selected={routinePeriod === "morning"}
-                data-active={routinePeriod === "morning"}
-                onClick={() => setRoutinePeriod("morning")}
+            {/* Title is a separate node that swaps text dynamically;
+                the switcher itself is icon-only (sun / moon).  Keeps
+                the active period legible at a glance without the
+                duplication of seeing the same word in the title and
+                inside the pill button. */}
+            <div className="routine-header">
+              <h3 className="routine-period-title">
+                {routinePeriod === "morning" ? "Morning" : "Evening"}
+              </h3>
+              <div
+                className="period-switch period-switch--icon-only"
+                role="tablist"
+                aria-label="Time of day"
               >
-                <span className="period-switch-icon" aria-hidden="true">☀</span>
-                Morning
-              </button>
-              <button
-                type="button"
-                role="tab"
-                className="period-switch-btn"
-                aria-selected={routinePeriod === "evening"}
-                data-active={routinePeriod === "evening"}
-                onClick={() => setRoutinePeriod("evening")}
-              >
-                <span className="period-switch-icon" aria-hidden="true">☾</span>
-                Evening
-              </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className="period-switch-btn"
+                  aria-selected={routinePeriod === "morning"}
+                  aria-label="Morning routine"
+                  data-active={routinePeriod === "morning"}
+                  onClick={() => setRoutinePeriod("morning")}
+                >
+                  <span className="period-switch-icon" aria-hidden="true">
+                    {/* Sun — central disc + eight short rays.  Stroke
+                        is currentColor so it follows button state. */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="8" cy="8" r="3" />
+                      <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" />
+                    </svg>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className="period-switch-btn"
+                  aria-selected={routinePeriod === "evening"}
+                  aria-label="Evening routine"
+                  data-active={routinePeriod === "evening"}
+                  onClick={() => setRoutinePeriod("evening")}
+                >
+                  <span className="period-switch-icon" aria-hidden="true">
+                    {/* Crescent moon — single closed path, slight tilt
+                        for a more designed feel than a pure D-shape. */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M13.2 9.6A5.5 5.5 0 1 1 6.4 2.8a4.4 4.4 0 0 0 6.8 6.8Z" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
             </div>
             <ol className="routine-steps">
               {routineSteps.slice(0, 5).map((step) => (
@@ -467,7 +620,7 @@ export default function ResultsPage() {
                 data-metric={row.id}
               >
                 <div className="row-head">
-                  <span className="row-label">{row.label}</span>
+                  <span className="row-label" title={row.label}>{row.label}</span>
                   <span className="row-value">{row.valueLabel}</span>
                 </div>
                 <div className="meter-track">
@@ -503,7 +656,15 @@ export default function ResultsPage() {
           <ul className="insights-list">
             {insights.map((line, idx) => (
               <li key={idx} className="insights-item">
-                <span className="insights-bullet" aria-hidden="true" />
+                {/* Four-point sparkle — reads as polish / AI insight
+                    rather than a generic list dot.  Currentcolor so
+                    we can recolor per-tab later without touching JSX. */}
+                <span className="insights-bullet" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
+                    <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
+                    <path d="M11.6 8.4c.15 1.2.65 2 1.8 2.3.1.03.1.17 0 .2-1.15.3-1.65 1.1-1.8 2.3-.15-1.2-.65-2-1.8-2.3-.1-.03-.1-.17 0-.2 1.15-.3 1.65-1.1 1.8-2.3Z" />
+                  </svg>
+                </span>
                 <p>{line}</p>
               </li>
             ))}
@@ -514,9 +675,28 @@ export default function ResultsPage() {
       </main>
 
       <div className="results-sticky">
-        <div className="results-saved" aria-hidden="true">
-          <span className="results-saved-check">✓</span> Saved to your history
-        </div>
+        {showSavedToast && (
+          <div className="results-saved" aria-hidden="true">
+            <span className="results-saved-check">
+              {/* Path-length normalised to 100 so the CSS dasharray
+                  animation doesn't need to know the actual geometry —
+                  going from 100 to 0 draws the check end-to-end. */}
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 7 L6 10 L11 4" pathLength="100" />
+              </svg>
+            </span>
+            Saved to your history
+          </div>
+        )}
         <PillButton
           trailingIcon={<span aria-hidden="true">→</span>}
           onClick={() => {

@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
-import { api } from "../services/api";
 
 /**
  * Landing screen.
@@ -16,48 +14,37 @@ import { api } from "../services/api";
  * a slow shimmer line that travels top-to-bottom. The animation
  * respects `prefers-reduced-motion`.
  *
- * The "View my results" link is rendered only when the analysis
- * history is non-empty — first-time visitors don't see a dead link
- * pointing to an empty page. The fetch is fire-and-forget; if the
- * backend is down we silently hide the link.
+ * The header's ≡ menu icon mirrors the one in ResultsPage and
+ * navigates to the history list — that's the single, consistent
+ * "see my past results" affordance across the app.
  */
 export default function HomePage() {
   const navigate = useNavigate();
-  const [hasHistory, setHasHistory] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .history()
-      .then((items) => {
-        if (!cancelled) setHasHistory(items.length > 0);
-      })
-      .catch(() => {
-        // Backend unreachable — hide the secondary link to avoid
-        // routing the user into an error state from the home screen.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
-    <div className="screen">
+    <div className="screen intro-screen">
       <div className="app-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
           <span
             style={{
               width: 32,
               height: 32,
               borderRadius: 9999,
               background: "var(--rose)",
+              color: "var(--text)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 14,
             }}
           >
-            ✦
+            {/* Same four-point sparkle (large + small companion) used
+                as the Insights tab bullet — keeps the brand glyph
+                consistent between the landing screen and the
+                "premium insight" surface inside the report. */}
+            <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" style={{ marginLeft: -2 }}>
+              <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
+              <path d="M11.6 8.4c.15 1.2.65 2 1.8 2.3.1.03.1.17 0 .2-1.15.3-1.65 1.1-1.8 2.3-.15-1.2-.65-2-1.8-2.3-.1-.03-.1-.17 0-.2 1.15-.3 1.65-1.1 1.8-2.3Z" />
+            </svg>
           </span>
           <span
             className="font-serif"
@@ -66,15 +53,8 @@ export default function HomePage() {
             SkinMatch
           </span>
         </div>
-        <IconButton aria-label="Menu">
-          <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
-            <path
-              d="M1 1h12M1 5h12M1 9h12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+        <IconButton onClick={() => navigate("/history")} aria-label="My results">
+          <span style={{ fontSize: 14 }}>≡</span>
         </IconButton>
       </div>
 
@@ -87,7 +67,7 @@ export default function HomePage() {
           <span className="intro-headline-em">decoded.</span>
         </h1>
         <p className="intro-subhead">
-          Snap a selfie, answer a few questions — get a routine made for your
+          Snap a selfie, answer a few questions – get a routine made for your
           skin.
         </p>
       </div>
@@ -111,15 +91,6 @@ export default function HomePage() {
         >
           Scan my skin
         </PillButton>
-        {hasHistory && (
-          <button
-            onClick={() => navigate("/history")}
-            className="text-link"
-            style={{ display: "block", margin: "12px auto 0" }}
-          >
-            View my results
-          </button>
-        )}
       </div>
     </div>
   );
