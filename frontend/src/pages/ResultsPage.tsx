@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
@@ -82,6 +82,7 @@ function pickConfidence(features: SkinFeatures, metrics: AIMetricsView | null | 
 
 export default function ResultsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { analysisId } = useParams();
   const id = Number(analysisId);
   const [recos, setRecos] = useState<RecommendationItem[] | null>(null);
@@ -95,6 +96,11 @@ export default function ResultsPage() {
   const [activeTarget, setActiveTarget] = useState<FocusArea | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [metersIn, setMetersIn] = useState(false);
+  // Saved-toast gating: show only on the *very first* time the user
+  // lands on a given /results/:id.  Subsequent loads (reload, deep
+  // link, History tap) skip it.  Stored per-analysisId in localStorage
+  // so it survives across tabs and browser restarts.
+  const [showSavedToast, setShowSavedToast] = useState(false);
 
   // Drag-to-scroll wiring for the Picks carousel on mouse devices.
   // Native touch keeps its own momentum scroll (we only intercept
@@ -170,6 +176,23 @@ export default function ResultsPage() {
     const t = requestAnimationFrame(() => setMetersIn(true));
     return () => cancelAnimationFrame(t);
   }, [features]);
+
+  // Toast appears ONLY when the user arrived directly from the
+  // /analyzing flow (AnalyzingPage navigates with `fromAnalyzing:
+  // true` in the router state).  History-tap and direct-link arrivals
+  // have no flag and skip the toast entirely.  After reading it once
+  // we strip the flag from the history entry via navigate-replace so
+  // a hard refresh on the same URL doesn't replay the toast.
+  useEffect(() => {
+    const state = location.state as { fromAnalyzing?: boolean } | null;
+    if (state?.fromAnalyzing) {
+      setShowSavedToast(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // We deliberately depend only on the pathname — re-running on
+    // state-object identity would clear the flag before we read it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const profile = useMemo(
     () => (features ? buildSkinProfile(features, aiMetrics) : []),
@@ -270,9 +293,18 @@ export default function ResultsPage() {
             >
               <svg viewBox="0 0 80 80" width="80" height="80">
                 <defs>
+                  {/* Pastel 5-stop rainbow — same family the Profile
+                      meter fills use.  Diagonal sweep so the colors
+                      flow around the ring rather than landing as a
+                      vertical band.  Tier-specific overrides are no
+                      longer applied because the gradient is intended
+                      to be the same calm pastel arc at every score. */}
                   <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="var(--score-grad-from)" />
-                    <stop offset="100%" stopColor="var(--score-grad-to)" />
+                    <stop offset="0%" stopColor="#b9ebb5" />
+                    <stop offset="25%" stopColor="#ffdf9b" />
+                    <stop offset="50%" stopColor="#fbc8c8" />
+                    <stop offset="75%" stopColor="#c8b3f0" />
+                    <stop offset="100%" stopColor="#a4d6f3" />
                   </linearGradient>
                 </defs>
                 <circle
@@ -648,9 +680,28 @@ export default function ResultsPage() {
       </main>
 
       <div className="results-sticky">
-        <div className="results-saved" aria-hidden="true">
-          <span className="results-saved-check">✓</span> Saved to your history
-        </div>
+        {showSavedToast && (
+          <div className="results-saved" aria-hidden="true">
+            <span className="results-saved-check">
+              {/* Path-length normalised to 100 so the CSS dasharray
+                  animation doesn't need to know the actual geometry —
+                  going from 100 to 0 draws the check end-to-end. */}
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 7 L6 10 L11 4" pathLength="100" />
+              </svg>
+            </span>
+            Saved to your history
+          </div>
+        )}
         <PillButton
           trailingIcon={<span aria-hidden="true">→</span>}
           onClick={() => {
