@@ -64,9 +64,7 @@ def test_analysis_rejects_bad_content_type(client):
 
 
 def test_multi_image_upload_stores_all_three_paths(client):
-    """Smart Camera 3-shot path: every supplied frame is persisted
-    and surfaced in the response, and `image_path` mirrors the front
-    photo for backward compat with downstream readers."""
+    """Smart Camera 3-shot: each frame persisted; image_path mirrors front."""
     front = _synthetic_image(color=(180, 150, 140))
     left = _synthetic_image(color=(170, 145, 135))
     right = _synthetic_image(color=(175, 148, 138))
@@ -83,19 +81,16 @@ def test_multi_image_upload_stores_all_three_paths(client):
     assert payload["image_front_path"], "front path must be set"
     assert payload["image_left_path"], "left path must be set"
     assert payload["image_right_path"], "right path must be set"
-    # All three paths must point to distinct files on disk.
     assert len({
         payload["image_front_path"],
         payload["image_left_path"],
         payload["image_right_path"],
     }) == 3
-    # `image_path` mirrors the front frame for backward compat.
     assert payload["image_path"] == payload["image_front_path"]
 
 
 def test_multi_image_upload_front_only(client):
-    """Left / right are optional; sending only `front` still
-    succeeds and leaves the side paths null."""
+    """Front only — sides null."""
     front = _synthetic_image()
     response = client.post(
         "/analysis/upload",
@@ -125,17 +120,14 @@ def test_legacy_single_image_leaves_pose_paths_null(client):
 
 
 def test_upload_without_any_image_is_rejected(client):
-    """Posting neither `file` nor `front` returns 400 with a
-    helpful message instead of an opaque 422."""
+    """Neither file nor front → 400 with a helpful message (not opaque 422)."""
     response = client.post("/analysis/upload", files={})
     assert response.status_code == 400, response.text
     assert "front" in response.json()["detail"].lower()
 
 
 def test_multi_image_upload_validates_each_frame(client):
-    """A bad left frame poisons the whole request — we surface the
-    415 from the per-frame validator instead of silently dropping
-    the malformed photo."""
+    """Bad side frame surfaces 415 instead of being silently dropped."""
     front = _synthetic_image()
     response = client.post(
         "/analysis/upload",
@@ -148,9 +140,7 @@ def test_multi_image_upload_validates_each_frame(client):
 
 
 def test_multi_image_upload_persists_to_database(client, db_engine):
-    """End-to-end check: the SkinScan row created by the multi-image
-    upload actually carries the three pose paths in the database
-    (not just in the response payload)."""
+    """SkinScan row carries the three pose paths in the DB, not just the response."""
     from sqlalchemy.orm import sessionmaker
 
     front = _synthetic_image()
