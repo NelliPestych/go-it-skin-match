@@ -1,16 +1,4 @@
-"""Tests for the `MockHautAIProvider` and its routing through the factory.
-
-The mock is a stand-in for the eventual real Haut.AI provider, so
-these tests check the *contract* the real provider will have to
-honour:
-
-* deterministic — same `front` bytes → same normalized result,
-* every normalized field populated with a plausible value,
-* coupled signals (oily → high pores; dry → low hydration) behave,
-* `recommendation_signals` exposes the right Haut-AI-shaped vocab,
-* `raw_summary` stays compact (we don't want to bloat the JSON column),
-* the factory routes `SKIN_ANALYSIS_PROVIDER=mock_haut` here.
-"""
+"""MockHautAIProvider contract tests + factory routing."""
 from __future__ import annotations
 
 import io
@@ -30,9 +18,7 @@ from app.schemas.skin_analysis import NormalizedSkinAnalysisResult
 
 
 def _synthetic_image(color=(180, 150, 140), size=256, seed: int = 0) -> bytes:
-    """Reproducible image bytes — seeded numpy noise keeps the
-    encoded JPEG byte-for-byte stable across test runs, which is
-    important because the mock provider is keyed off the byte hash."""
+    """Reproducible JPEG bytes — mock is keyed off the byte hash."""
     rng = np.random.default_rng(seed)
     arr = np.full((size, size, 3), color, dtype=np.uint8)
     noise = rng.integers(-15, 15, arr.shape, dtype=np.int16)
@@ -68,21 +54,18 @@ def test_mock_provider_returns_normalized_result():
 
 
 def test_mock_provider_is_deterministic_per_image():
-    """Same bytes in → same result out.  Critical for repeatable
-    demos and golden-test assertions."""
+    """Same bytes → same result (except analyzed_at)."""
     provider = MockHautAIProvider()
     image = _synthetic_image(seed=42)
 
     a = provider.analyze(image)
     b = provider.analyze(image)
 
-    # analyzed_at differs between calls; everything else must match.
     assert a.model_dump(exclude={"analyzed_at"}) == b.model_dump(exclude={"analyzed_at"})
 
 
 def test_mock_provider_varies_per_image():
-    """Different images should (with overwhelming probability) yield
-    different results — otherwise the mock would be a constant."""
+    """Different images → different mock_seed (other fields may collide by chance)."""
     provider = MockHautAIProvider()
     image_a = _synthetic_image(color=(200, 180, 170), seed=1)
     image_b = _synthetic_image(color=(120, 100, 95), seed=2)
@@ -90,15 +73,12 @@ def test_mock_provider_varies_per_image():
     a = provider.analyze(image_a)
     b = provider.analyze(image_b)
 
-    # `raw_summary.mock_seed` must differ — that's the primary
-    # determinism contract.  Other metrics MAY coincide by chance.
     assert a.raw_summary is not None and b.raw_summary is not None
     assert a.raw_summary["mock_seed"] != b.raw_summary["mock_seed"]
 
 
 def test_mock_provider_confidence_in_credible_band():
-    """A demo-credible mock should never report 0.0 or 1.0
-    confidence — production AI lands in a tight central band."""
+    """Confidence stays in [0.70, 0.99] — demo-credible band."""
     provider = MockHautAIProvider()
     for seed in range(1, 11):
         result = provider.analyze(_synthetic_image(seed=seed))
@@ -111,8 +91,7 @@ def test_mock_provider_confidence_in_credible_band():
 
 
 def test_mock_provider_oily_skin_implies_high_oiliness():
-    """The mock biases oily-type scans toward HIGH `oiliness` —
-    sanity-check across enough seeds to hit at least one OILY case."""
+    """oily skin_type → oiliness=HIGH; sample many seeds to hit at least one."""
     provider = MockHautAIProvider()
     oily_seen = False
     for seed in range(1, 60):
@@ -138,8 +117,7 @@ def test_mock_provider_dry_skin_implies_low_oiliness():
 
 
 def test_mock_provider_signals_have_expected_vocabulary():
-    """The signal dict is the wire-shape future providers will return.
-    Pin the key set so changes are intentional."""
+    """Pin the recommendation_signals key set — changes should be intentional."""
     provider = MockHautAIProvider()
     result = provider.analyze(_synthetic_image(seed=7))
 
@@ -156,8 +134,7 @@ def test_mock_provider_signals_have_expected_vocabulary():
 
 
 def test_mock_provider_raw_summary_is_compact():
-    """`raw_summary` must stay tiny — we are explicitly NOT shipping
-    a full vendor JSON dump into `features_json`."""
+    """raw_summary stays tiny — no full vendor JSON in features_json."""
     provider = MockHautAIProvider()
     result = provider.analyze(_synthetic_image(seed=3))
 
@@ -172,9 +149,7 @@ def test_mock_provider_raw_summary_is_compact():
 
 
 def test_mock_provider_counts_side_images():
-    """`images_received` reflects what was passed in — the metrics
-    themselves stay keyed off the front-shot hash so the demo result
-    is stable, but the metadata records what the provider saw."""
+    """images_received tracks count; metrics keyed off front-bytes only."""
     provider = MockHautAIProvider()
     image = _synthetic_image(seed=9)
 
@@ -186,8 +161,6 @@ def test_mock_provider_counts_side_images():
     assert with_one_side.raw_summary["images_received"] == 2
     assert with_two_sides.raw_summary["images_received"] == 3
 
-    # And the actual metrics are unaffected by side images — the
-    # mock keys off front-bytes only, like a single-pose vendor.
     keys = {"skin_type", "redness_level", "pores_score", "confidence_score"}
     a = only_front.model_dump(include=keys)
     b = with_two_sides.model_dump(include=keys)
@@ -207,8 +180,7 @@ def test_factory_routes_mock_haut(monkeypatch):
 
 
 def test_factory_local_still_default(monkeypatch):
-    """Routing regression guard — adding mock_haut must NOT have
-    broken the default local path."""
+    """Regression — adding mock_haut didn't break the default local path."""
     factory_fn.cache_clear()
     monkeypatch.setattr("app.core.config.settings.skin_analysis_provider", "local")
     provider = get_skin_analysis_provider()
@@ -217,8 +189,7 @@ def test_factory_local_still_default(monkeypatch):
 
 
 def test_factory_error_message_lists_known_providers(monkeypatch):
-    """The error mentions every supported name so a misconfig is
-    actionable without grepping the source."""
+    """Error lists every supported name for actionable misconfigs."""
     factory_fn.cache_clear()
     monkeypatch.setattr("app.core.config.settings.skin_analysis_provider", "haut_ai_typo")
     with pytest.raises(ValueError, match="local, mock_haut"):

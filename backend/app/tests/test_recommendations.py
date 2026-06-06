@@ -67,19 +67,10 @@ def test_engine_respects_budget(db_session):
     assert has_budget_reason
 
 
-# ── Step-4 quiz-driven bonus rules ────────────────────────────────────
-# Three independent IF-branches in `RecommendationEngine.score()`. Each
-# test below pins exactly one rule by comparing two engine runs against
-# the same seeded catalogue: one without the quiz signal, one with.
-# Any product the rule should boost must (a) gain the expected bonus
-# weight in `score`, and (b) carry the matching human reason in
-# `reasons`. Tests against the seeded catalogue (not synthetic
-# fixtures) so they also serve as integration coverage.
+# Step-4 quiz bonus rules: each test pins one rule by comparing on/off engine runs.
 
 def _baseline_features():
-    """Neutral feature dict — every level "low/medium", no implied
-    concerns from the AI side. Keeps the test focused on the quiz
-    signal under examination."""
+    """Neutral features; isolates the quiz signal under test."""
     return {
         "skin_type": "normal",
         "redness_level": "low",
@@ -94,9 +85,7 @@ def _score_by_id(scored):
 
 
 def test_breakout_frequency_boosts_acne_safe_products(db_session):
-    """`breakout_frequency = "often"` should bump every product tagged
-    with the catalogue concerns "oiliness" OR "pores" by exactly the
-    BREAKOUT_BONUS weight, and append the matching reason string."""
+    """often → +BREAKOUT_BONUS on oiliness/pores-tagged products + matching reason."""
     from app.services.recommendation_service import BREAKOUT_BONUS
 
     products = ProductRepository(db_session).list()
@@ -112,8 +101,6 @@ def test_breakout_frequency_boosts_acne_safe_products(db_session):
         )
     )
 
-    # At least one acne-tagged product must exist in the seed
-    # catalogue, otherwise this rule is untestable.
     acne_tagged = [
         p for p in products
         if {c.lower() for c in (p.concerns or [])} & {"oiliness", "pores"}
@@ -123,15 +110,12 @@ def test_breakout_frequency_boosts_acne_safe_products(db_session):
     boosted_count = 0
     for p in acne_tagged:
         if p.id not in boosted:
-            continue  # filtered out by skin-type, not by this rule
+            continue
         boosted_count += 1
-        # Reason must be present.
         assert "Helps with frequent breakouts" in boosted[p.id]["reasons"], (
             f"product {p.id} missing breakout reason: {boosted[p.id]['reasons']}"
         )
-        # Score must have grown by EXACTLY the rule's bonus (when the
-        # product was already scoring) or by AT LEAST it (when the
-        # bonus rescued the product from a score of 0).
+        # Delta = exact bonus when product was already scoring; ≥ bonus if rescued from 0.
         if p.id in base:
             assert (
                 round(boosted[p.id]["score"] - base[p.id]["score"], 3)
@@ -143,10 +127,7 @@ def test_breakout_frequency_boosts_acne_safe_products(db_session):
 
 
 def test_sunscreen_usage_boosts_sunscreen_category(db_session):
-    """`sunscreen_usage = "rarely_never"` must ALWAYS surface an SPF
-    in the results, even for a user with no concerns + no implied
-    AI signal — i.e. the bonus rescues an otherwise-zero-scoring
-    sunscreen product. This is the explicit Step-4 design intent."""
+    """rarely_never → SPF always surfaces (bonus rescues zero-scoring sunscreen)."""
     from app.services.recommendation_service import SUNSCREEN_BONUS
 
     products = ProductRepository(db_session).list()
@@ -162,12 +143,8 @@ def test_sunscreen_usage_boosts_sunscreen_category(db_session):
     assert sunscreen_products, "seed catalogue must include at least one sunscreen"
 
     for spf in sunscreen_products:
-        # The "rarely_never" run must include the SPF.
         assert spf.id in scored_on, f"sunscreen {spf.id} missing in boosted run"
-        # Reason present.
         assert "Supports daily sun protection" in scored_on[spf.id]["reasons"]
-        # Delta is exactly SUNSCREEN_BONUS when the product also
-        # appeared in the baseline; otherwise it's at least the bonus.
         if spf.id in scored_off:
             delta = scored_on[spf.id]["score"] - scored_off[spf.id]["score"]
             assert round(delta, 3) == SUNSCREEN_BONUS
@@ -176,8 +153,7 @@ def test_sunscreen_usage_boosts_sunscreen_category(db_session):
 
 
 def test_daily_environment_boosts_pigmentation_tagged(db_session):
-    """`daily_environment = "urban_pollution"` boosts pigmentation-
-    tagged products by POLLUTION_BONUS (antioxidant proxy)."""
+    """urban_pollution → +POLLUTION_BONUS on pigmentation-tagged products."""
     from app.services.recommendation_service import POLLUTION_BONUS
 
     products = ProductRepository(db_session).list()
@@ -215,9 +191,7 @@ def test_daily_environment_boosts_pigmentation_tagged(db_session):
 
 
 def test_unknown_quiz_values_have_no_effect(db_session):
-    """Unknown / typo values for any Step-4 quiz field must silently
-    no-op — they don't 422 (loose `Optional[str]` schema) and they
-    don't accidentally activate another rule's branch."""
+    """Unknown/typo values silently no-op (don't 422, don't trigger other rules)."""
     products = ProductRepository(db_session).list()
     engine = RecommendationEngine(products)
     features = _baseline_features()
@@ -227,24 +201,18 @@ def test_unknown_quiz_values_have_no_effect(db_session):
         {
             "concerns": [],
             "sensitivity": False,
-            "breakout_frequency": "OFTEN",  # wrong case
-            "sunscreen_usage": "nope",       # invented value
-            "daily_environment": "",         # empty string
+            "breakout_frequency": "OFTEN",
+            "sunscreen_usage": "nope",
+            "daily_environment": "",
         },
         top_k=20,
     )
-    # Same products, same scores, same order. The bonuses are
-    # value-gated; unknown values activate nothing.
     assert [s["product_id"] for s in baseline] == [s["product_id"] for s in with_garbage]
     assert [s["score"] for s in baseline] == [s["score"] for s in with_garbage]
 
 
 def test_legacy_quiz_payload_still_scores_identically_to_pre_step4(db_session):
-    """The legacy test_engine_filters_by_skin_type / _explains_reasons /
-    _respects_budget tests above already cover this implicitly; this
-    one makes the no-regression invariant explicit by reusing the
-    exact quiz dict the pre-Step-4 history test posts and asserting
-    the engine returns a stable, non-empty ranking."""
+    """Pre-Step-4 quiz dict still produces a stable non-empty ranking + no new bonuses."""
     products = ProductRepository(db_session).list()
     engine = RecommendationEngine(products)
     features = _baseline_features()
@@ -256,8 +224,6 @@ def test_legacy_quiz_payload_still_scores_identically_to_pre_step4(db_session):
     }
     scored = engine.score(features, quiz, top_k=8)
     assert scored
-    # No bonuses kicked in (no breakout / sunscreen / pollution keys
-    # in the legacy payload).
     for item in scored:
         for reason in item["reasons"]:
             assert reason not in (

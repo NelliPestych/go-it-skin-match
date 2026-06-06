@@ -1,23 +1,4 @@
-"""Tests for the extended AI metrics surfaced by /analysis/{id}/details.
-
-Covers three scenarios:
-
-1. **Legacy scan** — a row written *before* the provider abstraction
-   landed (only the 6 `SkinFeatures` keys in `features_json`).  The
-   endpoint must still respond, and `ai_metrics.provider` must equal
-   the `"legacy"` sentinel with the extended fields all `None`.
-2. **Fresh local scan** — running the normal upload flow with the
-   default `local` provider.  `ai_metrics` carries `provider="local"`,
-   confidence, and the extended levels populated by
-   `LocalHeuristicProvider`.
-3. **Fresh mock_haut scan** — same but with `SKIN_ANALYSIS_PROVIDER=
-   mock_haut`.  Confirms the realistic Haut-AI-shaped signals are
-   exposed through the details endpoint without crashing the schema.
-
-Backward-compat guard: every test also asserts the legacy `features`
-block on the response is unchanged in shape, so the existing frontend
-keeps working.
-"""
+"""Extended AI metrics on /analysis/{id}/details — legacy + local + mock_haut paths."""
 from __future__ import annotations
 
 import io
@@ -57,8 +38,7 @@ _LEGACY_FEATURES_KEYS = {
 
 
 def test_ai_metrics_from_legacy_features_json_marks_provider_legacy():
-    """Old `features_json` (only legacy keys) must be tolerated and
-    surface as `provider='legacy'` with extended fields null."""
+    """Legacy-only features_json → provider="legacy", extended fields null."""
     legacy = {
         "skin_type": "combination",
         "redness_level": "medium",
@@ -80,8 +60,7 @@ def test_ai_metrics_from_legacy_features_json_marks_provider_legacy():
 
 
 def test_ai_metrics_from_full_normalized_json_round_trips():
-    """The richer shape produced by `mock_haut` (or future Haut.AI)
-    must populate every extended field without dropping data."""
+    """Full normalized payload populates every extended field."""
     payload = {
         "skin_type": "oily",
         "redness_level": "medium",
@@ -122,9 +101,7 @@ def test_ai_metrics_from_none_returns_legacy_sentinel():
 
 
 def _seed_legacy_scan(client, db_session) -> int:
-    """Upload normally, then rewrite the resulting `features_json` to
-    the pre-provider 6-key shape — simulates a scan persisted *before*
-    Phase 1 landed.  Returns the scan id."""
+    """Upload, then rewrite features_json to the pre-provider 6-key shape."""
     upload = client.post(
         "/analysis/upload",
         files={"file": ("face.jpg", _synthetic_image(seed=1), "image/jpeg")},
@@ -147,21 +124,17 @@ def _seed_legacy_scan(client, db_session) -> int:
 
 
 def test_details_handles_legacy_features_json(client, db_session):
-    """A scan persisted under the pre-provider schema must still
-    round-trip through `/details` without 500-ing, and `ai_metrics`
-    must report it as `legacy`."""
+    """Legacy-schema scan round-trips through /details with ai_metrics.provider="legacy"."""
     analysis_id = _seed_legacy_scan(client, db_session)
 
     response = client.get(f"/analysis/{analysis_id}/details")
     assert response.status_code == 200, response.text
     body = response.json()
 
-    # Legacy block still works for the frontend.
     assert set(body["features"].keys()) == _LEGACY_FEATURES_KEYS
     assert body["features"]["skin_type"] == "normal"
     assert body["features"]["confidence_score"] == pytest.approx(0.77)
 
-    # New sidecar surfaces the legacy sentinel.
     assert body["ai_metrics"] is not None
     assert body["ai_metrics"]["provider"] == "legacy"
     assert body["ai_metrics"]["confidence_score"] == pytest.approx(0.77)
@@ -173,9 +146,7 @@ def test_details_handles_legacy_features_json(client, db_session):
 
 
 def test_details_exposes_local_provider_metrics(client):
-    """Fresh scan under default `local` provider: `ai_metrics` carries
-    provider='local', confidence > 0, oiliness/texture derived from
-    the heuristic."""
+    """local provider populates ai_metrics with derived oiliness/texture."""
     factory_fn.cache_clear()
     upload = client.post(
         "/analysis/upload",
@@ -185,24 +156,20 @@ def test_details_exposes_local_provider_metrics(client):
 
     body = client.get(f"/analysis/{analysis_id}/details").json()
 
-    # Legacy block unchanged.
     assert set(body["features"].keys()) == _LEGACY_FEATURES_KEYS
 
-    # Extended block populated.
     assert body["ai_metrics"]["provider"] == "local"
     assert 0.0 < body["ai_metrics"]["confidence_score"] <= 1.0
     assert body["ai_metrics"]["oiliness"] in {"low", "medium", "high"}
     assert body["ai_metrics"]["texture"] in {"low", "medium", "high"}
-    # LocalHeuristic intentionally defaults these to LOW (see provider).
+    # LocalHeuristic defaults these to LOW.
     assert body["ai_metrics"]["acne"] == "low"
     assert body["ai_metrics"]["fine_lines"] == "low"
     assert body["ai_metrics"]["analyzed_at"] is not None
 
 
 def test_details_exposes_mock_haut_provider_metrics(client, monkeypatch):
-    """Switching the provider via env routes the mock_haut output
-    cleanly through the details endpoint, including the
-    `recommendation_signals` dict."""
+    """mock_haut output (incl. recommendation_signals) flows through /details."""
     factory_fn.cache_clear()
     monkeypatch.setattr("app.core.config.settings.skin_analysis_provider", "mock_haut")
 
@@ -214,10 +181,8 @@ def test_details_exposes_mock_haut_provider_metrics(client, monkeypatch):
 
     body = client.get(f"/analysis/{analysis_id}/details").json()
 
-    # Legacy block unchanged.
     assert set(body["features"].keys()) == _LEGACY_FEATURES_KEYS
 
-    # Extended block reflects mock_haut.
     assert body["ai_metrics"]["provider"] == "mock_haut"
     assert 0.70 <= body["ai_metrics"]["confidence_score"] <= 0.99
     for key in ("oiliness", "acne", "fine_lines", "texture"):

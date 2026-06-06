@@ -1,8 +1,4 @@
-"""Redis cache service.
-
-Wraps redis-py with a small JSON helper. The service degrades gracefully
-when Redis is unavailable so the API remains functional in dev/test.
-"""
+"""Redis JSON cache; degrades gracefully when Redis is unavailable."""
 from __future__ import annotations
 
 import json

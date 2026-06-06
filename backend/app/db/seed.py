@@ -1,8 +1,4 @@
-"""Idempotent seed data for the product catalogue.
-
-Runs on application startup. If the catalogue already has products,
-seeding is skipped, so re-deploys are safe.
-"""
+"""Idempotent product-catalogue seed; skipped on startup if any product exists."""
 from __future__ import annotations
 
 import logging
