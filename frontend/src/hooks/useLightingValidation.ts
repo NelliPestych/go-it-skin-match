@@ -1,23 +1,4 @@
-/**
- * Frame luminance sampler.
- *
- * Periodically (≈ 4 Hz) draws the live `<video>` to a tiny 64×64
- * off-screen canvas, reads back the pixels, and computes the mean
- * Rec.709 luminance. The result is bucketed into a small status
- * union so the page can decide whether the lighting is acceptable.
- *
- * 4 Hz is plenty for a lighting indicator and avoids hammering the
- * GPU read-back path while MediaPipe is already running at RAF.
- *
- * Result is throttled — the consumer re-renders only when the bucket
- * flips or brightness moves by more than ~2 percentage points, so
- * neutral idle frames don't churn React.
- *
- * Tuning: TOO_DARK and TOO_BRIGHT are kept as named module-level
- * constants on purpose. They were calibrated against a typical
- * front-camera daylight scene; on demo machines with bad dynamic
- * range you may need to widen the band.
- */
+/** 4 Hz mean Rec.709 luminance sampler; throttled re-renders, bucketed status. */
 import { useEffect, useRef, useState } from "react";
 
 import type { LightingResult, LightingStatus } from "../types/camera";
@@ -44,8 +25,7 @@ export function useLightingValidation(
     const canvas = document.createElement("canvas");
     canvas.width = SAMPLE_SIZE;
     canvas.height = SAMPLE_SIZE;
-    // `willReadFrequently` lets the browser pick a software-backed
-    // bitmap that's ~10× faster for repeated `getImageData` calls.
+    // willReadFrequently picks a software bitmap (~10× faster getImageData).
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
@@ -56,7 +36,6 @@ export function useLightingValidation(
       try {
         ctx.drawImage(videoEl, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
         const { data } = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-        // Rec.709 luminance summed across the patch.
         let sum = 0;
         const pixels = data.length / 4;
         for (let i = 0; i < data.length; i += 4) {
@@ -77,13 +56,12 @@ export function useLightingValidation(
           setResult(next);
         }
       } catch {
-        // The decoder may briefly throw on tab restore — keep ticking.
+        // Decoder can briefly throw on tab restore — keep ticking.
       }
     };
 
     const id = window.setInterval(tick, TICK_MS);
-    // Fire one immediate sample so the chip doesn't sit on "unknown"
-    // for the first 250 ms after the camera comes up.
+    // One immediate sample so the chip doesn't sit on "unknown" for 250 ms.
     tick();
 
     return () => {

@@ -153,8 +153,7 @@ export default function ResultsPage() {
         setPlan(d.plan ?? null);
         setCreatedAt(d.created_at ?? null);
       } catch (err) {
-        // 401 is handled globally by AuthProvider — the page is
-        // about to unmount under a /auth redirect, so skip the toast.
+        // 401 → AuthProvider redirects; skip the flash error.
         if (cancelled || isUnauthorized(err)) return;
         setError(err instanceof Error ? err.message : "Failed to load");
       }

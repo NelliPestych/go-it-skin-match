@@ -1,17 +1,7 @@
-"""Rule-based + scoring recommendation engine.
+"""Rule-based scoring engine combining AI features + quiz + product catalog.
 
-Inputs:
-- skin features from the AI analyzer (skin_type, levels, scores)
-- quiz answers (concerns, sensitivity, age, budget, ...)
-- product catalog from the database
-
-Strategy:
-- Hard filter: products incompatible with the skin type are dropped.
-- Score: each product accumulates points for matching concerns
-  (weighted by user emphasis and AI severity), category coverage,
-  and price-vs-budget alignment. Each contributing rule emits a
-  human-readable reason — these reasons are persisted alongside
-  the recommendation so the UI can explain *why*.
+Skin-type hard filter; per-product score accumulates concern matches, core-category
+coverage, budget alignment, and Step-4 quiz bonuses. Each rule emits a reason.
 """
 from __future__ import annotations
 
@@ -38,29 +28,16 @@ CONCERN_TO_FEATURE = {
 CORE_CATEGORIES = ("cleanser", "moisturizer", "serum", "sunscreen")
 
 
-# ── Step-4 quiz-driven bonus weights ──────────────────────────────────
-# Each constant is a small, fixed score bump applied per product when
-# the user's Step-4 quiz answer indicates a relevant signal. Centralised
-# at module scope so they're easy to find, tune, and reference in tests.
-# Values are deliberately moderate (smaller than full concern matches)
-# so they NUDGE the ranking without overwhelming the AI signal.
-#
-# Match the seed catalogue's existing concern / category tags exactly —
-# no ingredient parsing or free-text heuristics.
-BREAKOUT_BONUS = 0.5   # frequent breakouts → boost oiliness / pores tagged
-SUNSCREEN_BONUS = 0.6  # rare-sunscreen users → boost sunscreen category
-POLLUTION_BONUS = 0.3  # urban pollution     → boost pigmentation (antioxidant proxy)
+# Step-4 quiz bonuses — moderate so they nudge rather than dominate AI signal.
+BREAKOUT_BONUS = 0.5
+SUNSCREEN_BONUS = 0.6
+POLLUTION_BONUS = 0.3
 
-# Quiz-answer values that activate each bonus. Listed here (not as
-# enums on the schema) for explainability: any other value silently
-# means "no bonus", which keeps the engine robust to UI evolution.
 BREAKOUT_ACTIVE_VALUE = "often"
 SUNSCREEN_ACTIVE_VALUE = "rarely_never"
 POLLUTION_ACTIVE_VALUE = "urban_pollution"
 
-# Catalogue tags the rules look for. Hard-coded by intent — the seed
-# catalogue uses exactly these concern labels, and the rules' meaning
-# would change if these were edited.
+# Seed catalogue tags — keep in sync if those labels change.
 ACNE_TAG_CONCERNS = ("oiliness", "pores")
 ANTIOXIDANT_TAG_CONCERN = "pigmentation"
 SUNSCREEN_CATEGORY = "sunscreen"
@@ -111,16 +88,11 @@ class RecommendationEngine:
         user_concerns: List[str] = list(quiz.get("concerns") or [])
         budget_cap = _budget_to_max_price(quiz.get("budget"))
 
-        # Step-4 quiz signals.  Each variable resolves to True iff the
-        # user's answer is exactly the value documented in the matching
-        # bonus constant above.  Any other value (None, typo, future
-        # UI string) silently means "no bonus" — that's the
-        # deterministic graceful-degradation policy.
+        # Any non-matching quiz value silently disables its bonus.
         boost_acne_safe = quiz.get("breakout_frequency") == BREAKOUT_ACTIVE_VALUE
         boost_sunscreen = quiz.get("sunscreen_usage") == SUNSCREEN_ACTIVE_VALUE
         boost_pollution = quiz.get("daily_environment") == POLLUTION_ACTIVE_VALUE
 
-        # combine user-declared concerns and AI-implied ones
         weights: Dict[str, float] = {c: 0.7 for c in user_concerns}
         for concern, w in _features_implied_concerns(features):
             weights[concern] = max(weights.get(concern, 0.0), w)
@@ -136,7 +108,6 @@ class RecommendationEngine:
             reasons: List[str] = []
             score = 0.0
 
-            # concern matches
             product_concerns = {c.lower() for c in (product.concerns or [])}
             for concern, weight in weights.items():
                 if concern in product_concerns:
@@ -144,30 +115,19 @@ class RecommendationEngine:
                     score += 1.0 * weight
                     reasons.append(label)
 
-            # core category coverage
             if product.category and product.category.lower() in CORE_CATEGORIES:
                 score += 0.4
                 reasons.append(f"Covers core step: {product.category}")
 
-            # skin-type fit
             if allowed_skins and skin_type.lower() in allowed_skins:
                 score += 0.3
                 reasons.append(f"Suited to {skin_type} skin")
 
-            # budget alignment
             if budget_cap is not None and product.price and product.price <= budget_cap:
                 score += 0.2
                 reasons.append("Within budget")
 
-            # ── Step-4 quiz-driven bonuses ─────────────────────────
-            # Three small, fixed bumps. Each rule:
-            #  - reads ONE quiz field
-            #  - matches against a STATIC catalogue tag
-            #  - adds a fixed weight + a single explanatory reason
-            # No ingredient parsing, no thresholds, no compounding.
-            # Bonuses also unlock otherwise-zero-scoring products
-            # (e.g. an SPF stays in the ranking for a non-SPF user)
-            # because the score check below runs AFTER these bumps.
+            # Quiz bonuses may unlock otherwise zero-scoring products (e.g. SPF stays in ranking).
             product_category = (product.category or "").lower()
 
             if boost_acne_safe and product_concerns & set(ACNE_TAG_CONCERNS):

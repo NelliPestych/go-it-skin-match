@@ -11,10 +11,7 @@ class User(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    # Nullable so rows persisted before the auth system landed (the
-    # legacy `demo@skinmatch.local` service account, etc.) keep
-    # working — they simply can no longer log in.  New accounts created
-    # via `/auth/register` always carry a hash.
+    # Nullable so pre-auth rows (legacy demo account) still round-trip.
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     scans = relationship("SkinScan", back_populates="user", cascade="all, delete-orphan")

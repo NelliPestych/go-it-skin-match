@@ -37,9 +37,7 @@ export default function HistoryPage() {
         const data = await api.history();
         if (!cancelled) setItems(data);
       } catch (err) {
-        // 401 → AuthProvider's global handler already routes to /auth;
-        // a transient toast on the page about to unmount would just
-        // flash before the redirect.
+        // 401 → AuthProvider redirects; skip the flash error.
         if (cancelled || isUnauthorized(err)) return;
         setError(err instanceof Error ? err.message : "Failed to load history");
       }

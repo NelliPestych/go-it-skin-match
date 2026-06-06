@@ -1,21 +1,6 @@
 /**
- * AuthProvider — minimal MVP auth context.
- *
- * Responsibilities:
- *   * Hold the current `{ token, user }` pair in React state.
- *   * Mirror it to localStorage under a stable key so a refresh
- *     keeps the session.
- *   * Push the token into `services/api.ts` so every fetch carries
- *     `Authorization: Bearer <token>` automatically.
- *   * Subscribe to api.ts's `onUnauthorized` callback so a 401 from
- *     ANY endpoint clears the token + state without per-call wiring.
- *
- * Storage choice (localStorage):
- *   * Survives reloads without a backend round-trip.
- *   * Vulnerable to XSS — documented as an MVP limitation in README.
- *     For production-grade auth, move the token to an httpOnly cookie
- *     and add CSRF.  That swap is contained: the AuthProvider's
- *     surface stays the same, only the read/write helpers change.
+ * AuthProvider — JWT in localStorage + global 401 handler.
+ * Token is XSS-readable; production-grade auth should move to httpOnly cookie + CSRF.
  */
 import {
   ReactNode,
@@ -71,7 +56,7 @@ function writeStored(value: StoredAuth | null): void {
       window.localStorage.removeItem(STORAGE_KEY);
     }
   } catch {
-    /* private mode, quota — silently ignore */
+    /* private mode, quota — ignore */
   }
 }
 
@@ -79,9 +64,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  /** Resolves with the new user on success; throws on bad credentials. */
   login: (email: string, password: string) => Promise<AuthUser>;
-  /** Resolves with the new user on success; throws on 409/422. */
   register: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
 }
@@ -89,21 +72,14 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Hydrate from storage exactly once on mount AND push the token
-  // into api.ts during the lazy initializer — synchronously, before
-  // any child effect fires.  Doing it in a useEffect was racy: a
-  // child page that issues a fetch in its own mount effect runs
-  // BEFORE the parent's auth effect, so the first request after a
-  // refresh / register / login would leak out as anonymous.  The
-  // initializer runs once during the first render's body, so by the
-  // time anything mounts the token is already in place.
+  // Push token into api.ts inside the lazy initializer so it lands BEFORE
+  // any child mount-effect fires a fetch (parent-effect-races-child bug).
   const [auth, setAuth] = useState<StoredAuth | null>(() => {
     const stored = readStored();
     setAuthToken(stored?.token ?? null);
     return stored;
   });
 
-  // Global 401 handler — single source of truth for "token went bad".
   useEffect(() => {
     setOnUnauthorized(() => {
       setAuthToken(null);
@@ -115,10 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adopt = useCallback((res: TokenResponse) => {
     const next: StoredAuth = { token: res.access_token, user: res.user };
-    // Push into api.ts BEFORE the state update so the very next
-    // fetch — including one fired by a sibling component's mount
-    // effect after the post-login redirect — already carries the
-    // bearer.  See the comment on useState above.
+    // Push to api.ts BEFORE setState so the next fetch already carries the bearer.
     setAuthToken(next.token);
     writeStored(next);
     setAuth(next);
@@ -165,6 +138,4 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-/** Tiny exports for tests so they can inspect the storage shape
- *  without re-implementing it. */
 export const __AUTH_STORAGE_KEY__ = STORAGE_KEY;

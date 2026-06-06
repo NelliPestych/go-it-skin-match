@@ -1,10 +1,4 @@
-/**
- * RequireAuth tests.
- *
- * Two-line invariant: anonymous user on a protected route → /auth
- * with `?next=` preserving the originally-requested path; logged-in
- * user passes through to the wrapped element.
- */
+/** Anonymous → /auth?next=<original>; authenticated → wrapped element. */
 import { render, screen } from "@testing-library/react";
 import {
   MemoryRouter,
@@ -43,9 +37,6 @@ function appUnder(memoryEntry: string) {
             path="/auth"
             element={
               <div data-testid="auth-page">
-                {/* Mirror the AuthPage's `?next=` lookup so we can
-                    assert on the bounce target without rendering the
-                    whole page. */}
                 <NextEcho />
               </div>
             }
@@ -57,8 +48,7 @@ function appUnder(memoryEntry: string) {
 }
 
 function NextEcho() {
-  // MemoryRouter doesn't touch window.location — read from React
-  // Router's own location object.
+  // MemoryRouter doesn't touch window.location.
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   return <span data-testid="next">{params.get("next") ?? ""}</span>;
@@ -68,8 +58,6 @@ describe("<RequireAuth />", () => {
   it("redirects anonymous users to /auth with the original path as ?next=", () => {
     appUnder("/history?ref=demo");
     expect(screen.getByTestId("auth-page")).toBeInTheDocument();
-    // ?next should round-trip the original path + query (URLSearchParams
-    // decodes it on read so we compare the decoded value).
     expect(screen.getByTestId("next").textContent).toBe("/history?ref=demo");
   });
 

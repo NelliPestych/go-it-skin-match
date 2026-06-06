@@ -19,9 +19,7 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
 
-    # Stored as a comma-separated string in .env. We avoid List[str] here
-    # because pydantic-settings tries to JSON-parse list-typed env vars
-    # before any validator can run.
+    # Stored as comma-separated string; pydantic-settings tries to JSON-parse List[str].
     backend_cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     database_url: str = "postgresql+psycopg2://skinmatch:skinmatch@postgres:5432/skinmatch"
@@ -34,34 +32,15 @@ class Settings(BaseSettings):
     ai_analyzer: str = "heuristic"
     ai_model_path: str = "./app/ai/models/skin_model.onnx"
 
-    # Top-level skin analysis provider selector. Drives the
-    # `SkinAnalysisProvider` factory in `app/ai/providers/factory.py`.
-    # `ai_analyzer` above stays as a sub-lever for the *local*
-    # provider (heuristic | onnx); the two are intentionally separate
-    # concerns (provider routing vs local-impl choice).
     skin_analysis_provider: str = "local"
-
-    # Optional fallback when the primary provider fails at request
-    # time (network / 5xx / auth).  Restricted at factory time to
-    # `local` or `mock_haut` — pointing back at `haut_ai` would
-    # create a loop and is rejected loudly.
+    # Allowed: local | mock_haut. Cycling back to haut_ai/openai_vision is rejected.
     skin_analysis_fallback_provider: Optional[str] = None
 
-    # ── Haut.AI provider config ──────────────────────────────────────
-    # Only consulted when `SKIN_ANALYSIS_PROVIDER=haut_ai`.  The key
-    # is intentionally `Optional` so importing settings never crashes
-    # on dev machines that don't ship credentials — the provider
-    # constructor enforces presence at construction time and raises
-    # `HautAIConfigError` if missing.
+    # Optional so settings load on dev machines without credentials; provider raises at construct time.
     haut_ai_api_key: Optional[str] = None
     haut_ai_base_url: str = "https://api.haut.ai"
     haut_ai_timeout_seconds: float = 30.0
 
-    # ── OpenAI Vision provider config ────────────────────────────────
-    # Only consulted when `SKIN_ANALYSIS_PROVIDER=openai_vision`.
-    # Same pattern as Haut.AI — `Optional` key so importing settings
-    # never crashes on dev machines without credentials; the provider
-    # raises `OpenAIVisionConfigError` at construction time if missing.
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0

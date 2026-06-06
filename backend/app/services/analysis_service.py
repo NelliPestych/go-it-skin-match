@@ -1,24 +1,4 @@
-"""Skin analysis orchestration.
-
-Validates the upload(s), persists the image(s), runs the AI analyzer
-(via the pipeline factory), and stores the resulting features.
-
-Two entry points:
-
-* `analyze(...)`        — legacy single-image path used by the
-                          manual-upload form. Stores the file in
-                          `image_path` only.
-* `analyze_multi(...)`  — Smart Camera 3-shot path. Persists the
-                          front photo into both `image_path` (for
-                          backward compat with downstream readers)
-                          and `image_front_path`; left / right go
-                          into `image_left_path` / `image_right_path`
-                          as nullable extras. The MVP heuristic
-                          analyzer still runs on the FRONT image only
-                          — we collect the side angles for future
-                          multi-angle pipelines without complicating
-                          today's scoring.
-"""
+"""Upload validation + image persistence + provider dispatch + feature storage."""
 from __future__ import annotations
 
 import uuid
@@ -46,9 +26,6 @@ class AnalysisService:
         provider: Optional[SkinAnalysisProvider] = None,
     ):
         self.scan_repo = scan_repo
-        # Provider is the outermost AI extension point — local
-        # heuristic today, mock / real Haut.AI later.  Tests inject
-        # a stub; runtime resolves via the env-driven factory.
         self.provider = provider or get_skin_analysis_provider()
 
     def _validate_upload(self, upload: UploadFile, contents: bytes) -> str:
@@ -88,9 +65,7 @@ class AnalysisService:
         left: Optional[bytes] = None,
         right: Optional[bytes] = None,
     ) -> NormalizedSkinAnalysisResult:
-        """Run the configured provider and translate analyzer-raised
-        `ValueError` into a 422 — the endpoint layer doesn't need to
-        know about either type."""
+        """Run provider; translate analyzer ValueError into HTTP 422."""
         try:
             return self.provider.analyze(front, left=left, right=right)
         except ValueError as exc:
@@ -103,10 +78,6 @@ class AnalysisService:
         suffix = self._validate_upload(upload, contents)
         image_path = self._persist(contents, suffix)
         result = self._run_provider(contents)
-        # Persist the FULL normalized result in `features_json` —
-        # downstream readers tug at the legacy keys at the top level
-        # (skin_type, redness_level, …) which are preserved verbatim,
-        # so backward compat holds without branching.
         scan = self.scan_repo.create(
             user_id=user_id,
             image_path=image_path,
@@ -124,17 +95,7 @@ class AnalysisService:
         right_upload: Optional[UploadFile] = None,
         right_contents: Optional[bytes] = None,
     ) -> Tuple[SkinScan, SkinFeatures]:
-        """Smart Camera 3-shot ingestion.
-
-        Validates each provided upload independently (front is
-        required, left/right optional); persists every accepted
-        image; runs the analyzer on the FRONT image only; stores
-        all paths on the SkinScan.
-
-        `image_path` mirrors `image_front_path` so legacy code that
-        reads the single-image column (history thumbnails, details,
-        recommendations) keeps working without branching.
-        """
+        """Smart Camera 3-shot: front required, sides optional, analyzer runs on front."""
         front_suffix = self._validate_upload(front_upload, front_contents)
         front_path = self._persist(front_contents, front_suffix)
 
@@ -148,10 +109,6 @@ class AnalysisService:
             right_suffix = self._validate_upload(right_upload, right_contents)
             right_path = self._persist(right_contents, right_suffix)
 
-        # Pass all three pose images to the provider — `LocalHeuristic`
-        # ignores `left` / `right`, but a future remote provider
-        # (Haut.AI) may run multi-angle analysis without changing this
-        # call site.
         result = self._run_provider(front_contents, left=left_contents, right=right_contents)
 
         scan = self.scan_repo.create(

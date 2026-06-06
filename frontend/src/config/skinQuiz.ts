@@ -1,38 +1,7 @@
-/**
- * Skincare quiz config — single source of truth for the 7-question
- * flow rendered by `QuizPage`.
- *
- * Each question writes its answer into one slot of `QuizAnswers`
- * (see `types/quiz.ts`). The route `/quiz/:step` reads from this
- * array by 1-based index so question order can be reshuffled by
- * editing this file alone — no UI changes required.
- *
- * Design notes:
- * - All visible copy lives here (not in the page component).  This
- *   makes it trivial to swap in localised strings later.
- * - `bg` is intentionally a CSS custom property from the existing
- *   palette (var(--rose) / --lavender / --mint / --cream / --sky)
- *   so the new quiz reuses the same colour system as the original
- *   two-question quiz, without introducing new design tokens.
- * - `icon` is an emoji string — same as the legacy quiz cards.
- *   No new image assets, no extra HTTP requests.
- * - Every option `id` MUST be a legal value of the corresponding
- *   per-answer union in `types/quiz.ts`.  The config-validity tests
- *   in Step 6 will enforce this; the per-question const-arrays below
- *   already get TypeScript narrowing thanks to `satisfies`.
- *
- * Why a const array (not a class / not separate modules):
- * The quiz is data, not behaviour.  A flat const array is the easiest
- * shape for both the renderer (`skinQuizQuestions[step - 1]`) and the
- * tests (iterate + assert).  Splitting per-question into modules
- * would add ceremony with no payoff.
- */
+/** Quiz config — single source of truth for the 7 questions; QuizPage indexes by step. */
 import type { QuizQuestion } from "../types/quiz";
 
 export const skinQuizQuestions: QuizQuestion[] = [
-  // ── Q1 ─────────────────────────────────────────────────────────
-  // Self-perceived skin type. We compare this to the AI-detected
-  // type later to compute recommendation confidence.
   {
     id: "skin_type",
     title: "What's your skin type?",
@@ -47,10 +16,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q2 ─────────────────────────────────────────────────────────
-  // Main skin concerns. Multi-select — drives product scoring.
-  // Mapped to legacy backend `Concern` values at submit time in
-  // `services/quizMapping.ts`.
   {
     id: "concerns",
     title: "Your main concerns?",
@@ -67,9 +32,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q3 ─────────────────────────────────────────────────────────
-  // Skin sensitivity. Single-select — gates harsh ingredients and
-  // boosts gentle / fragrance-free products.
   {
     id: "sensitivity",
     title: "How sensitive is your skin?",
@@ -82,8 +44,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q4 ─────────────────────────────────────────────────────────
-  // Current routine level. Drives plan complexity.
   {
     id: "routine_level",
     title: "Do you use skincare?",
@@ -96,8 +56,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q5 ─────────────────────────────────────────────────────────
-  // Breakout frequency. Boosts acne-safe / non-comedogenic products.
   {
     id: "breakout_frequency",
     title: "How often do you break out?",
@@ -111,8 +69,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q6 ─────────────────────────────────────────────────────────
-  // Daily environment. Adjusts antioxidant / SPF emphasis.
   {
     id: "daily_environment",
     title: "Your daily environment?",
@@ -125,8 +81,6 @@ export const skinQuizQuestions: QuizQuestion[] = [
     ],
   },
 
-  // ── Q7 ─────────────────────────────────────────────────────────
-  // Sunscreen usage. Triggers SPF education + ensures SPF in routine.
   {
     id: "sunscreen_usage",
     title: "Do you use sunscreen?",
@@ -140,5 +94,4 @@ export const skinQuizQuestions: QuizQuestion[] = [
   },
 ];
 
-/** Convenience constant for the page renderer. */
 export const SKIN_QUIZ_TOTAL_STEPS = skinQuizQuestions.length;

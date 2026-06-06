@@ -1,54 +1,15 @@
-"""Real Haut.AI skin-analysis provider.
+"""Haut.AI skin-analysis provider — defensive HTTP client behind SkinAnalysisProvider.
 
-A thin, defensive HTTP client wrapped behind the project's
-`SkinAnalysisProvider` interface.  This provider is what production
-ultimately routes to via `SKIN_ANALYSIS_PROVIDER=haut_ai`; until we
-hold real credentials and the official API contract, the request /
-response shape used here is a **placeholder** intentionally isolated
-in three swap-friendly methods:
+Wire shape is a placeholder until real Haut.AI docs land; swap is isolated to
+the three constants below + three private methods (_build / _send / _normalize).
 
-  * `_build_request_payload(...)` — wire shape for the outbound JSON.
-  * `_send_request(...)`          — single touchpoint for the network.
-  * `_normalize_response(...)`    — vendor → `NormalizedSkinAnalysisResult`.
-
-When the real Haut.AI spec lands, only the three constants at the top
-of this file (endpoint path, image-list key, metric-name map) plus the
-three private methods above should need to change.  The public
-`analyze()` signature, error taxonomy, fallback wiring and tests all
-stay put.
-
-Design choices worth pinning here, because they're easy to regress:
-
-1. **Public method stays synchronous.**  The rest of the system speaks
-   sync (`analysis_service._run_provider`).  We deliberately use
-   `httpx.AsyncClient` *inside* `_send_request`, called from a
-   threadpool-safe `asyncio.run(...)` inside the sync `analyze()`.
-   FastAPI runs the calling service methods in its threadpool, so
-   there is no live event loop in the calling thread.
-
-2. **Conservative, never diagnostic, normalization.**  Real provider
-   payloads will drift; the response parser treats every metric as
-   optional, accepts both numeric (0–100) and categorical strings
-   (`"low"|"medium"|"high"`), and falls back to the
-   `NormalizedSkinAnalysisResult` schema defaults rather than crashing.
-
-3. **`raw_summary` budget.**  We persist a tiny audit blob — request
-   id, model version, list of *metric names* received, image count,
-   processing time.  No base64.  No masks.  No thumbnails.  No full
-   vendor JSON.  `features_json` is a JSON column on `SkinScan` and
-   we don't want to bloat it per scan.
-
-4. **API key hygiene.**  The key is read in `__init__`, never logged
-   anywhere (we don't log headers; error messages are the short safe
-   text in `original_provider_error`).
-
-5. **Fallback semantics.**  Optional `fallback` provider is invoked
-   only on request-time errors (`HautAIAuthError`, `HautAIRequestError`,
-   `HautAIServerError`).  `HautAIConfigError` always propagates — a
-   silent fallback from a config error would mask a deployment bug.
-   The fallback result is annotated with `raw_summary.fallback_used`
-   and `raw_summary.original_provider_error` so operators can spot it
-   in features_json without digging through logs.
+Invariants (easy to regress):
+* Sync public analyze() uses asyncio.run() over httpx.AsyncClient inside.
+* Tolerant parser — every metric optional, numeric or categorical, schema defaults.
+* raw_summary budget: request id, model version, received metric names, image count,
+  processing time. No base64, masks, thumbnails, or full vendor JSON.
+* API key never logged. Error strings are short safe text.
+* Fallback fires only on request-time errors; HautAIConfigError always propagates.
 """
 from __future__ import annotations
 
@@ -67,18 +28,12 @@ from app.schemas.skin_analysis import NormalizedSkinAnalysisResult
 logger = logging.getLogger(__name__)
 
 
-# ── Wire-shape placeholders ──────────────────────────────────────────
-# Swap these three to align with the real Haut.AI contract once we have
-# credentials + docs.  Everything else stays the same.
-
+# Wire-shape placeholders — swap when real Haut.AI contract is available.
 _ENDPOINT_PATH = "/v1/skin-analysis"
 _IMAGES_FIELD = "images"
 _PROVIDER_NAME = "haut_ai"
 
-# Vendor metric names we expect to find on a successful response.
-# Anything missing is treated as "not measured" rather than crashing.
-# Keeping the map keys as Haut.AI-ish names insulates the rest of the
-# codebase from vendor terminology drift.
+# Vendor metric names — missing keys are treated as "not measured".
 _METRIC_KEY_MAP = {
     "skin_type": "skin_type",
     "oiliness": "oiliness",
@@ -124,26 +79,14 @@ class HautAIServerError(HautAIError):
 
 
 def _bucket_score(value: Any) -> Optional[Level]:
-    """Map a vendor-side metric value to our `Level` enum.
-
-    Accepts both shapes the real Haut.AI is plausible to return:
-
-      * numeric 0–100 (or 0–1) — bucketed into thirds.
-      * categorical strings — `"low" | "medium" | "high"`, case- and
-        whitespace-insensitive.  Anything else returns `None` so the
-        caller can fall back to the schema default rather than coerce
-        garbage into a category.
-    """
+    """Map numeric (0–1 or 0–100) or categorical 'low|medium|high' to Level."""
     if value is None:
         return None
     if isinstance(value, bool):
-        # bool is a subclass of int in Python; refuse it explicitly so
-        # `True`/`False` don't accidentally bucket as "medium"/"low".
+        # bool subclasses int — refuse explicitly.
         return None
     if isinstance(value, (int, float)):
         x = float(value)
-        # Tolerate both 0–1 and 0–100 ranges so the bucketing stays
-        # correct regardless of how the provider chooses to scale.
         if 0.0 <= x <= 1.0:
             x *= 100.0
         if x < 33.0:
@@ -164,11 +107,7 @@ def _bucket_score(value: Any) -> Optional[Level]:
 
 
 def _parse_skin_type(value: Any) -> Optional[SkinType]:
-    """Tolerant parse of the provider's `skin_type` field.
-
-    Unknown strings (e.g. `"sensitive"` — not in our enum) collapse to
-    `None` so the caller can decide on a default rather than 500.
-    """
+    """Tolerant parse; unknown strings → None so caller decides defaults."""
     if not isinstance(value, str):
         return None
     s = value.strip().lower()
@@ -184,12 +123,7 @@ def _parse_skin_type(value: Any) -> Optional[SkinType]:
 
 
 def _safe_pores_score(value: Any) -> Optional[float]:
-    """Coerce the vendor's `pores` reading into our 0..1 float.
-
-    Accepts numeric 0–1 or 0–100.  Categorical strings are bucketed
-    to a representative float so a level-only response still produces
-    something useful.  Anything unparseable returns `None`.
-    """
+    """Coerce 0..1 / 0..100 numeric or categorical to a 0..1 float."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
@@ -220,11 +154,7 @@ def _safe_confidence(value: Any) -> Optional[float]:
 
 
 def _safe_signals(value: Any) -> Dict[str, float]:
-    """Coerce provider `recommendation_signals` into our numeric dict.
-
-    Drops anything non-numeric — we keep the dict tight so downstream
-    consumers can iterate without per-key type guards.
-    """
+    """Numeric-only projection of provider recommendation_signals."""
     if not isinstance(value, dict):
         return {}
     out: Dict[str, float] = {}
@@ -251,15 +181,12 @@ class HautAIProvider(SkinAnalysisProvider):
         timeout_seconds: float,
         fallback: Optional[SkinAnalysisProvider] = None,
     ) -> None:
-        # Fail loudly at construction time so a Railway deploy without
-        # the secret can't silently serve a degraded experience.
+        # Fail at construction so a misconfigured deploy can't silently degrade.
         if not api_key or not api_key.strip():
             raise HautAIConfigError(
                 "HAUT_AI_API_KEY is required when SKIN_ANALYSIS_PROVIDER=haut_ai. "
                 "Set the key or switch to SKIN_ANALYSIS_PROVIDER=mock_haut."
             )
-        # Guard against trivial cycles: a haut_ai → haut_ai fallback
-        # would loop on every request-time failure.
         if fallback is not None and getattr(fallback, "name", None) == _PROVIDER_NAME:
             raise HautAIConfigError(
                 "SKIN_ANALYSIS_FALLBACK_PROVIDER must be one of {local, mock_haut}; "
@@ -269,8 +196,6 @@ class HautAIProvider(SkinAnalysisProvider):
         self._base_url = base_url.rstrip("/")
         self._timeout = httpx.Timeout(timeout_seconds)
         self._fallback = fallback
-
-    # ── Public entry point ───────────────────────────────────────────
 
     def analyze(
         self,
@@ -285,14 +210,10 @@ class HautAIProvider(SkinAnalysisProvider):
             raw = asyncio.run(self._send_request(payload))
             return self._normalize_response(raw, images_received=images_received)
         except HautAIError as exc:
-            # Config errors must never trigger a fallback — they are a
-            # deployment bug, and silently rerouting to mock_haut here
-            # would hide the misconfiguration.
+            # Config errors never fallback — that would hide deploy bugs.
             if isinstance(exc, HautAIConfigError) or self._fallback is None:
                 raise
             return self._run_fallback(front, left, right, exc)
-
-    # ── Build ────────────────────────────────────────────────────────
 
     def _build_request_payload(
         self,
@@ -300,15 +221,7 @@ class HautAIProvider(SkinAnalysisProvider):
         left: Optional[bytes] = None,
         right: Optional[bytes] = None,
     ) -> Dict[str, Any]:
-        """Compose the outbound JSON body.
-
-        Today we send `front` plus any provided side photos under a
-        generic `images: [{ pose, content_base64 }]` array — keeps the
-        method ready for multi-image once the real endpoint supports
-        it.  When the official Haut.AI contract lands, only the field
-        names and the list shape change; the rest of the provider
-        keeps working.
-        """
+        """Compose {images: [{pose, content_base64}]}."""
         images: List[Dict[str, str]] = [
             {"pose": "front", "content_base64": _b64(front)}
         ]
@@ -318,17 +231,8 @@ class HautAIProvider(SkinAnalysisProvider):
             images.append({"pose": "right", "content_base64": _b64(right)})
         return {_IMAGES_FIELD: images}
 
-    # ── Send ─────────────────────────────────────────────────────────
-
     async def _send_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """The only place the network is touched.
-
-        Classifies every failure mode into a `HautAIError` subclass so
-        the public `analyze()` can decide whether to fall back or
-        propagate.  `httpx.HTTPStatusError` / network errors are caught
-        here on purpose — surfacing raw httpx exceptions to callers
-        would leak provider internals.
-        """
+        """Single network touchpoint; classifies every failure into HautAIError."""
         url = f"{self._base_url}{_ENDPOINT_PATH}"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -343,6 +247,7 @@ class HautAIProvider(SkinAnalysisProvider):
         except httpx.RequestError as exc:
             # DNS / connection / TLS — anything transport-level.
             raise HautAIServerError("Haut.AI network error") from exc
+
 
         status = response.status_code
         if status == 401 or status == 403:
@@ -360,23 +265,13 @@ class HautAIProvider(SkinAnalysisProvider):
             raise HautAIRequestError("Haut.AI returned an unexpected response shape")
         return data
 
-    # ── Normalize ────────────────────────────────────────────────────
-
     def _normalize_response(
         self,
         raw: Dict[str, Any],
         images_received: int,
     ) -> NormalizedSkinAnalysisResult:
-        """Project the vendor payload onto `NormalizedSkinAnalysisResult`.
-
-        Tolerant by design: every metric is treated as optional, and
-        anything we can't parse falls back to the schema defaults.
-        This is the second of the two methods we expect to revisit
-        once we see real responses — the structure of the rest of the
-        provider should stay stable.
-        """
-        # Defensive against vendors that wrap their actual payload in
-        # a generic envelope (e.g. `{"result": {...}, ...}`).
+        """Tolerant projection onto NormalizedSkinAnalysisResult — defaults on unknown."""
+        # Defensive against {"result": {...}} envelopes.
         if "result" in raw and isinstance(raw["result"], dict):
             metrics_source: Dict[str, Any] = dict(raw.get("result", {}))
         else:
@@ -386,8 +281,7 @@ class HautAIProvider(SkinAnalysisProvider):
         else:
             metrics = metrics_source
 
-        # Pull each measured metric, recording which ones were actually
-        # present so we can audit later without storing the full body.
+        # Track received metric names so we can audit without storing the full body.
         received: List[str] = []
 
         def _read(metric_name: str) -> Any:
@@ -408,7 +302,7 @@ class HautAIProvider(SkinAnalysisProvider):
 
         pores_score = _safe_pores_score(_read("pores"))
         if pores_score is None:
-            pores_score = 0.4  # neutral default — see schema rationale
+            pores_score = 0.4  # neutral default
 
         confidence_score = _safe_confidence(
             metrics.get("confidence_score")
@@ -431,8 +325,6 @@ class HautAIProvider(SkinAnalysisProvider):
             "processing_time_ms": raw.get("processing_time_ms")
             or raw.get("processing_time"),
         }
-        # Drop None entries so `raw_summary` stays compact — readers
-        # treat missing keys and `None` keys identically anyway.
         raw_summary = {k: v for k, v in raw_summary.items() if v is not None}
 
         return NormalizedSkinAnalysisResult(
@@ -451,8 +343,6 @@ class HautAIProvider(SkinAnalysisProvider):
             provider=self.name,
         )
 
-    # ── Fallback ─────────────────────────────────────────────────────
-
     def _run_fallback(
         self,
         front: bytes,
@@ -460,13 +350,7 @@ class HautAIProvider(SkinAnalysisProvider):
         right: Optional[bytes],
         original_error: HautAIError,
     ) -> NormalizedSkinAnalysisResult:
-        """Run the configured fallback provider and tag the result.
-
-        We log the short safe message (not the API key, not the raw
-        provider payload) so operators see *why* the fallback kicked
-        in, and we annotate `raw_summary` on the returned result so
-        the persistence layer captures the same audit trail.
-        """
+        """Run fallback; log + annotate raw_summary with the short safe error."""
         safe_message = str(original_error) or original_error.__class__.__name__
         logger.warning(
             "Haut.AI request failed, falling back to %s: %s",

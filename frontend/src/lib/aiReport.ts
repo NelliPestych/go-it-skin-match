@@ -1,41 +1,12 @@
 /**
- * Pure helpers that translate the AI Skin Report into user-facing UI
- * primitives.  Kept out of the React component so the wording rules,
- * thresholds and prioritization can be unit-tested in isolation.
- *
- * Source signals come from two places:
- *
- *   - `SkinFeatures` (legacy 6-field shape) — always present on a
- *     details response.  Provides skin_type / hydration / redness /
- *     pigmentation / pores / confidence.
- *
- *   - `AIMetricsView` (optional sidecar) — when the provider returned
- *     normalized metrics, adds oiliness / acne / fine_lines / texture
- *     plus its own confidence_score and a provider stamp.  When the
- *     provider is `"legacy"` (or the sidecar is absent entirely),
- *     these extended metrics are unavailable and the UI falls back
- *     to a basic profile derived solely from the legacy fields.
- *
- * Wording rules (intentionally cautious, never diagnostic):
- *   - "may", "suggests", "can help", "support"
- *   - never names a condition: "Your skin may benefit from
- *     lightweight hydration", not "You have dehydrated skin".
- *   - never leaks internal provider names (mock_haut, haut_ai).
+ * Pure helpers translating the AI Skin Report into UI primitives.
+ * Wording is cautious, never diagnostic; provider ids never leak.
  */
 import type { AIMetricsView, Level, SkinFeatures } from "../types";
 
-/* ── Confidence ──────────────────────────────────────────────────── */
-
 export type ConfidenceTier = "High" | "Medium" | "Low";
 
-/** Map a 0..1 confidence score to a friendly tier.
- *
- *  Thresholds match the product spec exactly:
- *    >= 0.75 → High
- *    >= 0.50 → Medium
- *    <  0.50 → Low
- *  Anything `NaN` / `undefined` collapses to "Low" so the badge is
- *  always renderable. */
+/** ≥0.75 → High, ≥0.5 → Medium, else Low. NaN/undefined → Low. */
 export function confidenceLabel(score: number | undefined | null): ConfidenceTier {
   if (typeof score !== "number" || Number.isNaN(score)) return "Low";
   if (score >= 0.75) return "High";
@@ -43,15 +14,7 @@ export function confidenceLabel(score: number | undefined | null): ConfidenceTie
   return "Low";
 }
 
-/* ── Provider label ──────────────────────────────────────────────── */
-
-/** User-facing label for the analysis source.
- *
- *  Never returns the raw provider id (`mock_haut`, `haut_ai`,
- *  `local`).  Treat anything other than the explicit `"legacy"`
- *  sentinel as a real AI provider — that way new providers added
- *  later automatically render as "AI-powered analysis" without a
- *  frontend change. */
+/** Anything other than "legacy" renders as AI-powered; provider ids never surface. */
 export function displayProviderLabel(
   metrics: AIMetricsView | null | undefined,
 ): "AI-powered analysis" | "Basic analysis" {
@@ -59,23 +22,14 @@ export function displayProviderLabel(
   return "AI-powered analysis";
 }
 
-/** True when extended AI metrics (oiliness / acne / fine_lines /
- *  texture) are available for display.  Centralized so the component
- *  and the focus-area / insight generators stay in sync. */
+/** True when oiliness/acne/fine_lines/texture are available. */
 export function hasExtendedMetrics(
   metrics: AIMetricsView | null | undefined,
 ): boolean {
   return !!metrics && metrics.provider !== "legacy";
 }
 
-/* ── Metric → percent ────────────────────────────────────────────── */
-
-/** Map a categorical level to a meter percentage.
- *
- *  Used by the skin profile bars; kept consistent with the prior
- *  ResultsPage mapping (low 30 / medium 60 / high 85) so existing
- *  scans don't visually jump after the redesign.  Defaults to 50% so
- *  a missing reading reads as "neutral" rather than alarming. */
+/** low 30 / medium 60 / high 85; null → 50 (neutral). */
 export function levelToPercent(level: Level | null | undefined): number {
   if (level === "high") return 85;
   if (level === "medium") return 60;
@@ -83,10 +37,7 @@ export function levelToPercent(level: Level | null | undefined): number {
   return 50;
 }
 
-/* ── Skin profile ────────────────────────────────────────────────── */
-
 export interface ProfileMetric {
-  /** Stable id — useful for React keys and test queries. */
   id:
     | "hydration"
     | "redness"
@@ -96,17 +47,12 @@ export interface ProfileMetric {
     | "acne"
     | "fine_lines"
     | "texture";
-  /** Human label, e.g. "Hydration". */
   label: string;
-  /** Compact word for the right-hand side of the row, e.g. "Medium". */
   valueLabel: string;
-  /** 0..100 for the meter fill. */
+  /** 0..100 meter fill. */
   percent: number;
-  /** Tint hint for the meter (small visual variety, no semantics). */
   tone: "rose" | "mint" | "cream" | "lavender" | "sky" | "peach";
-  /** Salience: higher = more likely a "concerning" reading we want to
-   *  surface first.  Used to rank metrics so the user sees the most
-   *  relevant rows in the default view without scrolling. */
+  /** Higher = surface first. */
   priority: number;
 }
 
@@ -141,14 +87,7 @@ function levelWord(level: Level | null | undefined): string {
   return "—";
 }
 
-/** Per-metric priority scoring.  Higher = more likely "concerning" /
- *  more informative for the user, so we want it surfaced first in the
- *  default view.  Calibrated so a single very strong reading (e.g.
- *  high redness) always beats anything that's just "medium".
- *
- *  Hydration is the one exception: hydration always shows in the
- *  top-5 because it's the most universally relevant skincare signal
- *  even when the reading is mid-range — users expect it. */
+/** Higher = more concerning, surfaced first. Hydration always stays in top-5. */
 function metricPriority(
   id: ProfileMetric["id"],
   raw: Level | number | null | undefined,
@@ -170,8 +109,7 @@ function metricPriority(
     hydration: 9, // concern is *low* hydration — handled below
   };
   if (id === "hydration") {
-    // Inverted: low hydration is the concerning state, high is great.
-    // Floor of 5 keeps hydration in the top tier regardless.
+    // Inverted — low hydration is the concerning state.
     if (level === "low") return 10;
     if (level === "medium") return 6;
     return 5;
@@ -181,18 +119,7 @@ function metricPriority(
   return 0;
 }
 
-/** Build the ordered list of metric cards for the skin profile grid.
- *
- *  Legacy metrics (hydration / redness / pigmentation / pores) come
- *  from `SkinFeatures` and are always present.  Extended metrics
- *  (oiliness / acne / fine_lines / texture) are appended only when
- *  the provider supplied them — when the sidecar is missing or its
- *  `provider === "legacy"`, those rows are hidden so we don't show
- *  empty placeholders.
- *
- *  Rows are returned sorted by descending priority so the page can
- *  slice the first N for the default view and put the rest behind a
- *  "Show more" toggle. */
+/** Sorted by descending priority; extended metrics only when provider supplied them. */
 export function buildSkinProfile(
   features: SkinFeatures,
   metrics: AIMetricsView | null | undefined,
@@ -272,20 +199,15 @@ export function buildSkinProfile(
       });
   }
 
-  // Sort by descending priority.  Stable on ties so the legacy block
-  // keeps a familiar order when nothing dominates.
+  // Stable sort on ties so the legacy block keeps a familiar order.
   return rows
     .map((r, idx) => ({ r, idx }))
     .sort((a, b) => b.r.priority - a.r.priority || a.idx - b.idx)
     .map(({ r }) => r);
 }
 
-/** Default count of metric rows shown in the collapsed view.  Five
- *  fits 3 rows of the 2-col grid (with one orphan) and keeps the
- *  page from feeling like a dashboard. */
 export const DEFAULT_PROFILE_METRIC_COUNT = 5;
 
-/* ── Focus areas ─────────────────────────────────────────────────── */
 
 export type FocusArea =
   | "Oil control"
@@ -308,12 +230,7 @@ const LEVEL_WEIGHT: Record<Level, number> = {
   high: 2,
 };
 
-/** Pick 2–4 actionable focus areas, ranked by signal strength.
- *
- *  Combines legacy and extended metrics so the basic-analysis path
- *  still produces useful focus areas.  When the user has no strong
- *  signals at all, we still emit at least two areas (skin_type-aware
- *  defaults) so the section is never empty. */
+/** 2–4 ranked focus areas; falls back to safe defaults when signals are flat. */
 export function buildFocusAreas(
   features: SkinFeatures,
   metrics: AIMetricsView | null | undefined,
@@ -348,11 +265,9 @@ export function buildFocusAreas(
       candidates.push({ area: "Texture smoothing", score: LEVEL_WEIGHT[m.fine_lines] });
   }
 
-  // Always keep SPF support on the table — universal recommendation —
-  // but at a low priority so it only surfaces when there's room.
+  // SPF kept on the table at low priority — surfaces only when there's room.
   candidates.push({ area: "Daily SPF support", score: 0.5 });
 
-  // Collapse duplicates by max score, then rank.
   const byArea = new Map<FocusArea, number>();
   for (const { area, score } of candidates) {
     const prev = byArea.get(area);
@@ -368,21 +283,12 @@ export function buildFocusAreas(
   const top = ranked.slice(0, 4);
   if (top.length >= 2) return top;
 
-  // Fallback floor when signals are all flat — surface neutral, safe
-  // areas that apply broadly.
   const fallback: FocusArea[] = ["Hydration support", "Daily SPF support"];
   for (const area of fallback) if (!top.includes(area)) top.push(area);
   return top.slice(0, Math.max(2, top.length));
 }
 
-/* ── Personalized insights ───────────────────────────────────────── */
-
-/** Short, reassuring sentences (2–3) tailored to the user's metrics.
- *
- *  Wording rules: never diagnostic, never medical, always hedged
- *  ("may", "suggests", "can help").  Insights are *additive* to the
- *  metric grid — they translate numbers into a couple of plain-
- *  English takeaways, they don't restate every reading. */
+/** 2–3 hedged ("may", "can help") sentences additive to the metric grid. */
 export function buildInsights(
   features: SkinFeatures,
   metrics: AIMetricsView | null | undefined,
@@ -391,7 +297,6 @@ export function buildInsights(
   const ext = hasExtendedMetrics(metrics);
   const m = ext ? (metrics as AIMetricsView) : null;
 
-  // 1. Oil + hydration combo (very common for combination / oily skin)
   if (m?.oiliness === "high" && features.hydration_level === "low") {
     out.push(
       "A pairing of lightweight hydration and gentle oil-balancing care can help your skin feel comfortable all day.",
@@ -406,7 +311,6 @@ export function buildInsights(
     );
   }
 
-  // 2. Texture / fine lines / pores
   if (m?.texture === "high" || m?.fine_lines === "high") {
     out.push(
       "Your scan suggests a hint of uneven texture, and gentle weekly exfoliation can help reveal a smoother, softer finish.",
@@ -417,14 +321,12 @@ export function buildInsights(
     );
   }
 
-  // 3. Redness / barrier
   if (features.redness_level === "high") {
     out.push(
       "Soothing, fragrance-free formulas can be a comforting companion for a calmer, more even-looking complexion.",
     );
   }
 
-  // 4. Pigmentation / SPF — universal nudge
   if (features.pigmentation_level === "high") {
     out.push(
       "Daily SPF is one of the kindest things you can do for an even, radiant complexion — every morning, no exceptions.",
@@ -435,14 +337,13 @@ export function buildInsights(
     );
   }
 
-  // 5. Acne / breakout copy
   if (m?.acne === "high") {
     out.push(
       "Gentle, targeted care can be a soothing companion through breakout-prone moments — patience matters more than pressure.",
     );
   }
 
-  // Trim to 3, dedupe.
+  // Dedupe and trim to 3.
   const seen = new Set<string>();
   const final: string[] = [];
   for (const line of out) {
@@ -453,7 +354,7 @@ export function buildInsights(
     if (final.length >= 3) break;
   }
 
-  // Floor: always at least 2 lines so the section doesn't look empty.
+  // Floor at 2 lines so the section never looks empty.
   if (final.length < 2) {
     const filler =
       "Consistency is the quiet secret of great skin — small daily rituals tend to add up to a softer, brighter complexion.";
@@ -463,13 +364,7 @@ export function buildInsights(
   return final;
 }
 
-/* ── Recommendation tagline ──────────────────────────────────────── */
-
-/** Build a short tagline connecting recommendations to AI findings.
- *
- *  Used under the "Recommended" section header — surfaces the top 2
- *  focus areas the products are addressing so the user sees the
- *  thread between the scan and the suggestions. */
+/** Tagline under "Recommended" surfacing the top 2 focus areas. */
 export function recommendationTagline(focusAreas: FocusArea[]): string {
   if (focusAreas.length === 0) return "Curated for your specific profile";
   const lead = focusAreas.slice(0, 2).map((a) => a.toLowerCase());

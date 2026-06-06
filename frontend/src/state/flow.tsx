@@ -14,40 +14,15 @@ import {
 import type { Concern, SkinType } from "../types";
 import type { QuizAnswers, SkinConcern } from "../types/quiz";
 
-/** Optional side photos from the Smart Camera 3-shot capture.  When
- *  the user goes through the manual uploader these stay null — the
- *  AnalyzingPage falls back to the legacy single-image POST. */
+/** Optional Smart Camera side photos; null on manual uploader path. */
 export interface AdditionalImages {
   left: File | null;
   right: File | null;
 }
 
 /**
- * FlowProvider exposes two faces of the same underlying state:
- *
- * 1. **Canonical (new)** — `quizAnswers` + `setQuizAnswer` +
- *    `toggleQuizConcern`.  The new config-driven QuizPage reads and
- *    writes this directly.
- *
- * 2. **Legacy (back-compat)** — `skinType`, `concerns`, `setSkinType`,
- *    `toggleConcern`.  These are kept in the interface so that the
- *    not-yet-deleted `QuizSkinTypePage.tsx` / `QuizConcernsPage.tsx`
- *    still type-check (per the user's "do not delete old pages yet"
- *    rule), and so that any consumer that already reads them
- *    (notably `AnalyzingPage` before Step 3 lands) keeps working.
- *
- *    Read paths (`skinType`, `concerns`) are **derived** from
- *    `quizAnswers` via the pure mappers in `services/quizMapping.ts`,
- *    so there is exactly one source of truth.
- *
- *    Write paths (`setSkinType`, `toggleConcern`) keep their old
- *    signatures.  `setSkinType` writes through into
- *    `quizAnswers.skin_type` because legacy `SkinType ⊂
- *    SkinTypeAnswer`.  `toggleConcern` is intentionally a no-op:
- *    the only caller is the unmounted legacy QuizConcernsPage, and
- *    reverse-mapping a legacy concern back into the richer UI set
- *    would be ambiguous (`"pores"` maps from both `large_pores` and
- *    `acne_breakouts`).  Documented in-line below.
+ * Canonical state is `quizAnswers`. Legacy `skinType` / `concerns` are
+ * derived views kept for back-compat with unmounted legacy pages.
  */
 interface FlowState {
   imageFile: File | null;
@@ -55,27 +30,16 @@ interface FlowState {
   additionalImages: AdditionalImages;
   setAdditionalImages: (extras: AdditionalImages) => void;
 
-  // ── Canonical quiz state ─────────────────────────────────────────
   quizAnswers: QuizAnswers;
   setQuizAnswer: <K extends keyof QuizAnswers>(key: K, value: QuizAnswers[K]) => void;
   toggleQuizConcern: (c: SkinConcern) => void;
 
-  // ── Legacy back-compat (derived / shim) ──────────────────────────
-  /** Legacy single-value skin type. Computed from `quizAnswers.skin_type`
-   *  via the pure mapper — `"not_sure"` collapses to `null`. */
+  /** Derived from quizAnswers.skin_type; "not_sure" → null. */
   skinType: SkinType | null;
-  /** Back-compat setter. Writes into `quizAnswers.skin_type`. */
   setSkinType: (t: SkinType) => void;
-  /** Legacy concern list, derived from `quizAnswers.concerns` through
-   *  `mapConcernsToLegacy(...)`.  We additionally append `"sensitivity"`
-   *  when `quizAnswers.sensitivity === "very_sensitive"` so that the
-   *  pre-Step-3 `AnalyzingPage`, which derives the legacy boolean
-   *  `sensitivity` via `concerns.includes("sensitivity")`, still
-   *  receives the right signal during the brief Step 2 → Step 3 window. */
+  /** Derived from quizAnswers.concerns; appends "sensitivity" on very_sensitive. */
   concerns: Concern[];
-  /** Back-compat no-op. The legacy QuizConcernsPage is unmounted by
-   *  the routing redirect; this setter is kept only so the file
-   *  itself continues to type-check until the eventual cleanup. */
+  /** No-op — reverse-mapping legacy concerns to UI set would be ambiguous. */
   toggleConcern: (c: Concern) => void;
 
   reset: () => void;
@@ -94,9 +58,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   const setImageFile = useCallback((f: File | null) => {
     setImageFileRaw(f);
-    // Replacing the front photo must wipe the stale side photos so a
-    // new front never ends up paired with old sides from a previous
-    // Smart Camera session.
+    // Wipe stale side photos so a fresh front never pairs with old sides.
     setAdditionalImages(EMPTY_EXTRAS);
   }, []);
 
@@ -123,10 +85,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     setQuizAnswers(EMPTY_ANSWERS);
   }, []);
 
-  // Derived legacy views — recomputed on every quizAnswers change.
-  // useMemo keeps the array identity stable for downstream `useEffect`
-  // dependency arrays (otherwise AnalyzingPage would re-trigger its
-  // submit effect every render).
+  // useMemo to keep array identity stable for downstream effect deps.
   const skinType: SkinType | null = useMemo(
     () => mapSkinTypeToLegacy(quizAnswers.skin_type) ?? null,
     [quizAnswers.skin_type],
@@ -134,10 +93,6 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   const concerns: Concern[] = useMemo(() => {
     const mapped = mapConcernsToLegacy(quizAnswers.concerns);
-    // Preserve the legacy "sensitivity-as-concern" signal that the
-    // pre-Step-3 AnalyzingPage uses to derive its boolean. Step 3
-    // will switch AnalyzingPage to read quizAnswers.sensitivity
-    // directly and this branch becomes a no-op.
     if (
       quizAnswers.sensitivity === "very_sensitive" &&
       !mapped.includes("sensitivity")
@@ -147,7 +102,6 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     return mapped;
   }, [quizAnswers.concerns, quizAnswers.sensitivity]);
 
-  // ── Legacy setters (delegating into quizAnswers) ─────────────────
   const setSkinType = useCallback(
     (t: SkinType) => {
       setQuizAnswers((prev) => ({ ...prev, skin_type: t }));
@@ -155,9 +109,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Documented in the interface above: intentionally a no-op.
   const toggleConcern = useCallback((_c: Concern) => {
-    /* no-op — see FlowState.toggleConcern docstring */
+    /* no-op — see FlowState.toggleConcern */
   }, []);
 
   const value = useMemo<FlowState>(

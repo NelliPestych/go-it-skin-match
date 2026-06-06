@@ -1,22 +1,7 @@
-"""Provider factory.
+"""Provider factory keyed off SKIN_ANALYSIS_PROVIDER; cached singleton.
 
-Reads `SKIN_ANALYSIS_PROVIDER` from settings and returns the matching
-provider instance.  Cached per-process — providers are stateless
-after construction, so a single shared instance is cheaper than a
-fresh one per request.
-
-The factory enforces three safety properties shared by every primary
-provider:
-
-  * the provider-specific API key must be present when that provider
-    is selected — a missing key raises the provider's `…ConfigError`
-    at construction time so a Railway deploy without the secret
-    fails loudly,
-  * the optional `SKIN_ANALYSIS_FALLBACK_PROVIDER` is restricted to
-    `local` or `mock_haut` — never a remote provider, never a
-    recursive chain.  An invalid name raises `ValueError` at startup,
-  * an unknown `SKIN_ANALYSIS_PROVIDER` value also raises `ValueError`
-    rather than silently degrading to `local`.
+Enforces: required key per provider, fallback restricted to local|mock_haut,
+unknown provider name → ValueError (no silent degrade).
 """
 from __future__ import annotations
 
@@ -36,12 +21,7 @@ _VALID_FALLBACKS = ("local", "mock_haut")
 
 
 def _build_fallback() -> Optional[SkinAnalysisProvider]:
-    """Resolve the configured fallback provider, or `None`.
-
-    Refuses any remote provider as a fallback (would loop) and any
-    unknown name (would mask a typo).  Both cases raise a clear
-    `ValueError` so misconfiguration surfaces during startup.
-    """
+    """Resolve fallback or None. Refuses remote providers + unknown names."""
     name = (settings.skin_analysis_fallback_provider or "").strip().lower()
     if not name:
         return None
@@ -59,16 +39,12 @@ def _build_fallback() -> Optional[SkinAnalysisProvider]:
 
 @lru_cache
 def get_skin_analysis_provider() -> SkinAnalysisProvider:
-    """Return the configured `SkinAnalysisProvider` singleton."""
     name = (settings.skin_analysis_provider or "local").lower()
     if name == "local":
         return LocalHeuristicProvider()
     if name == "mock_haut":
         return MockHautAIProvider()
     if name == "haut_ai":
-        # `HautAIProvider.__init__` raises `HautAIConfigError` if the
-        # key is missing — re-raised here unchanged so a deploy-time
-        # misconfig fails loudly at first call.
         return HautAIProvider(
             api_key=settings.haut_ai_api_key,
             base_url=settings.haut_ai_base_url,
@@ -76,9 +52,6 @@ def get_skin_analysis_provider() -> SkinAnalysisProvider:
             fallback=_build_fallback(),
         )
     if name == "openai_vision":
-        # `OpenAIVisionProvider.__init__` raises `OpenAIVisionConfigError`
-        # if the key is missing or the SDK is not installed — re-raised
-        # unchanged for the same loud-fail reasons.
         return OpenAIVisionProvider(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
