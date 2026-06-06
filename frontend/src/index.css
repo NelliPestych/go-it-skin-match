@@ -1387,26 +1387,10 @@ select {
   padding-bottom: 24px;
 }
 
-/* History screen — floating CTA + reserved bottom space. */
-.history-screen {
-  padding-bottom: 110px;
-}
-
+/* History CTA — sticky (in-flow), with a soft fade gradient above. */
 .history-screen .screen-footer {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
+  /* Inherits position: sticky; bottom: 0 from base .screen-footer. */
   padding: 12px var(--side-margin) max(20px, env(safe-area-inset-bottom));
-  pointer-events: none;
-  z-index: 5;
-}
-
-@media (min-width: 768px) {
-  .history-screen .screen-footer {
-    max-width: var(--mobile-width);
-  }
 }
 
 .history-screen .screen-footer::before {
@@ -1416,10 +1400,6 @@ select {
   background: linear-gradient(180deg, rgba(250, 249, 246, 0) 0%, var(--bg-results) 70%);
   pointer-events: none;
   z-index: -1;
-}
-
-.history-screen .screen-footer > * {
-  pointer-events: auto;
 }
 
 .history-card {
