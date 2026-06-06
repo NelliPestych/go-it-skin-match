@@ -13,7 +13,7 @@ import {
   type FocusArea,
   recommendationTagline,
 } from "../lib/aiReport";
-import { api } from "../services/api";
+import { api, isUnauthorized } from "../services/api";
 import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
 
 type ResultsTab = "targets" | "picks" | "routine" | "profile" | "insights";
@@ -153,7 +153,10 @@ export default function ResultsPage() {
         setPlan(d.plan ?? null);
         setCreatedAt(d.created_at ?? null);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
+        // 401 is handled globally by AuthProvider — the page is
+        // about to unmount under a /auth redirect, so skip the toast.
+        if (cancelled || isUnauthorized(err)) return;
+        setError(err instanceof Error ? err.message : "Failed to load");
       }
     })();
     return () => {

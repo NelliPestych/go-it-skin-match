@@ -12,12 +12,15 @@ import HomePage from "./pages/HomePage";
 // are no longer routed: the config-driven `QuizPage` mounted on
 // `/quiz/:step` supersedes them, and `/quiz/skin-type` /
 // `/quiz/concerns` are mapped to redirects so deep-links keep working.
+import AuthPage from "./pages/AuthPage";
 import SmartCameraIntroPage from "./pages/SmartCameraIntroPage";
 import SmartCameraPage from "./pages/SmartCameraPage";
 import QuizPage from "./pages/QuizPage";
 import AnalyzingPage from "./pages/AnalyzingPage";
 import ResultsPage from "./pages/ResultsPage";
 import HistoryPage from "./pages/HistoryPage";
+import RequireAuth from "./components/RequireAuth";
+import { AuthProvider } from "./state/auth";
 import { FlowProvider } from "./state/flow";
 
 /** Reset window scroll on every route change (Router v6 doesn't). */
@@ -31,32 +34,59 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <FlowProvider>
-      <ScrollToTop />
-      <div className="mobile-frame">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/capture" element={<SmartCameraIntroPage />} />
-          <Route path="/smart-camera" element={<SmartCameraPage />} />
-          {/* New config-driven 7-step quiz. */}
-          <Route path="/quiz" element={<Navigate to="/quiz/1" replace />} />
-          <Route path="/quiz/:step" element={<QuizPage />} />
-          {/* Legacy deep-links from earlier versions of the app fall
-              through to the new quiz at the appropriate step. */}
-          <Route
-            path="/quiz/skin-type"
-            element={<Navigate to="/quiz/1" replace />}
-          />
-          <Route
-            path="/quiz/concerns"
-            element={<Navigate to="/quiz/2" replace />}
-          />
-          <Route path="/analyzing" element={<AnalyzingPage />} />
-          <Route path="/results/:analysisId" element={<ResultsPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </FlowProvider>
+    <AuthProvider>
+      <FlowProvider>
+        <ScrollToTop />
+        <div className="mobile-frame">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/capture" element={<SmartCameraIntroPage />} />
+            <Route path="/smart-camera" element={<SmartCameraPage />} />
+            {/* New config-driven 7-step quiz. */}
+            <Route path="/quiz" element={<Navigate to="/quiz/1" replace />} />
+            <Route path="/quiz/:step" element={<QuizPage />} />
+            {/* Legacy deep-links from earlier versions of the app fall
+                through to the new quiz at the appropriate step. */}
+            <Route
+              path="/quiz/skin-type"
+              element={<Navigate to="/quiz/1" replace />}
+            />
+            <Route
+              path="/quiz/concerns"
+              element={<Navigate to="/quiz/2" replace />}
+            />
+            {/* Auth-gated routes — AnalyzingPage runs the actual scan
+                upload, so it (and the result + history views) must
+                resolve to a real user. */}
+            <Route
+              path="/analyzing"
+              element={
+                <RequireAuth>
+                  <AnalyzingPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/results/:analysisId"
+              element={
+                <RequireAuth>
+                  <ResultsPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <RequireAuth>
+                  <HistoryPage />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </FlowProvider>
+    </AuthProvider>
   );
 }

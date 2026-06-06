@@ -9,7 +9,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "./api";
+import {
+  api,
+  isUnauthorized,
+  setAuthToken,
+  setOnUnauthorized,
+  UnauthorizedError,
+} from "./api";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -98,5 +104,64 @@ describe("api.uploadAnalysisMulti", () => {
     await expect(
       api.uploadAnalysisMulti({ front: fakeFile("front.jpg") }),
     ).rejects.toThrow(/no image supplied/i);
+  });
+});
+
+
+describe("401 handling — one-shot global handler + isUnauthorized helper", () => {
+  let onUnauth: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    onUnauth = vi.fn();
+    setOnUnauthorized(onUnauth);
+    setAuthToken("expired.fake.token");
+    fetchMock = vi.fn(async () =>
+      jsonResponse({ detail: "Invalid or expired auth token" }, 401),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    setOnUnauthorized(null);
+    setAuthToken(null);
+    vi.restoreAllMocks();
+  });
+
+  it("fires the global handler exactly once across a burst of parallel 401s", async () => {
+    // Three authed reads in flight at the same time — ResultsPage
+    // really does fan out like this (details + recommendations + plan).
+    // Without the one-shot guard each one would trigger logout().
+    const results = await Promise.allSettled([
+      api.history(),
+      api.details(1),
+      api.plan(1),
+    ]);
+    expect(results.every((r) => r.status === "rejected")).toBe(true);
+    // Same handler, fired ONCE.
+    expect(onUnauth).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-arms the one-shot guard whenever a fresh token is installed", async () => {
+    await api.history().catch(() => undefined);
+    expect(onUnauth).toHaveBeenCalledTimes(1);
+
+    // User logs back in → new token → next 401 should re-fire.
+    setAuthToken("a.new.token");
+    await api.history().catch(() => undefined);
+    expect(onUnauth).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws UnauthorizedError and isUnauthorized recognises it", async () => {
+    let caught: unknown = null;
+    try {
+      await api.history();
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(UnauthorizedError);
+    expect(isUnauthorized(caught)).toBe(true);
+    // Sanity: a plain error must NOT pass the predicate.
+    expect(isUnauthorized(new Error("not auth"))).toBe(false);
+    expect(isUnauthorized(null)).toBe(false);
   });
 });

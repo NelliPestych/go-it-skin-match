@@ -598,6 +598,104 @@ suite skips it.
 
 ---
 
+## 🔐 Authentication
+
+Email + password sign-up / log-in with a JWT-bearer token, scoping
+every authed endpoint to the requesting user.  Designed to be small
+on purpose: no email verification, no password reset, no rate
+limiting — those are documented under MVP limitations below.
+
+### Flow
+
+```
+Landing → Smart Camera → Quiz step 7
+                              │
+                              ▼  (Continue)
+                       /analyzing
+                              │
+                              │ <RequireAuth> sees no token
+                              ▼
+                          /auth?next=/analyzing
+                          (Sign Up / Log In tabs)
+                              │
+                              ▼  (on success — token stored)
+                          /analyzing  →  /results/:id
+```
+
+`/history` and `/results/:id` are also wrapped in the same
+`RequireAuth` guard, so a deep-link or refresh on those pages always
+routes through `/auth` first when the session is missing.
+
+### Backend
+
+| concern | implementation |
+| --- | --- |
+| Password hashing | `hashlib.scrypt` (stdlib) with per-record salt. Stored as `scrypt$<salt_b64>$<hash_b64>`. Cost params: `n=2¹⁴, r=8, p=1`. |
+| Access tokens | HS256 JWT via PyJWT, payload `{sub: email, iat, exp}`. Default TTL **24 hours**. |
+| Auth dependency | `get_current_user`: requires a valid Bearer token in production. In non-production (`APP_ENV != "production"`) a missing header falls back to the historical demo user so existing tests + the local dev flow keep working. A malformed / expired token always 401s. |
+| Endpoints | `POST /auth/register` → 201 + `TokenResponse`. `POST /auth/login` → 200 + `TokenResponse`. Both return identical 401 messages on bad credentials to prevent email enumeration. `/register` returns 409 on duplicate email. |
+| User isolation | `/analysis/history`, `/analysis/{id}`, `/analysis/{id}/details`, `/recommendations/{id}`, `/plan/{id}` all filter by `user.id`. Cross-user reads return 404 (same as not-found, so a probing client gets no signal). |
+
+### Frontend
+
+| concern | implementation |
+| --- | --- |
+| Storage | localStorage under key `skinmatch.auth` holding `{ token, user }`. Rehydrated on AuthProvider mount. |
+| Header injection | `services/api.ts` keeps a module-level `_authToken`. Every authed `fetch` calls `authHeaders(...)` which attaches `Authorization: Bearer <token>` automatically. |
+| 401 handling | `setOnUnauthorized` callback wired by AuthProvider. Any 401 from any `api.*` call clears the in-memory state + localStorage. Subsequent fetches no longer carry the bearer. |
+| Route guards | `<RequireAuth>` redirects anonymous users to `/auth?next=<encoded original path>`. The AuthPage bounces back after success. |
+| Logout | Small "Log out" link in the HistoryPage header. Clears storage + state, then `navigate("/")`. |
+
+### Required environment
+
+| var | required when | notes |
+| --- | --- | --- |
+| `APP_ENV` | always | `production` flips off the demo-user fallback. Anything else (default `development`) keeps it on. |
+| `SECRET_KEY` | always | Symmetric HS256 secret for JWTs. **Always** override the default before deploying. Rotating it invalidates every existing session. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | unused | Legacy knob; the token TTL is currently fixed at 24 h in `core/security.py`. |
+
+### Schema
+
+The `users` table gains a nullable `password_hash` column.  No
+Alembic — `init_db.py` runs an idempotent `ALTER TABLE ... ADD
+COLUMN IF NOT EXISTS password_hash VARCHAR(255)` on startup
+(Postgres) or introspects + ALTERs on SQLite.  Rows persisted
+before the auth system landed (notably the historical
+`demo@skinmatch.local` service account) keep their `NULL`
+`password_hash` and can no longer log in — analyses created under
+them remain attached as a historical artefact.
+
+### Testing locally
+
+```bash
+# Register a new account (auto-logs you in)
+curl -X POST http://localhost:8000/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email":"alice@example.com","password":"password123"}'
+# → 201 { access_token: "eyJ…", token_type: "bearer", user: { … } }
+
+# Log in
+curl -X POST http://localhost:8000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"alice@example.com","password":"password123"}'
+# → 200 { access_token: "…", … }
+
+# Use the token
+TOKEN="eyJ…"
+curl http://localhost:8000/analysis/history -H "Authorization: Bearer $TOKEN"
+```
+
+### MVP limitations
+
+- **localStorage stores the JWT.** Vulnerable to XSS. The production-grade path is httpOnly cookie + CSRF token; the AuthProvider's surface stays the same, only the storage helpers change.
+- **No email verification.** Any well-formed email passes.
+- **No password reset / recovery.** Adding one would require a transactional email provider — out of MVP scope.
+- **No rate limiting on `/auth/login`.** A determined attacker can brute-force. Mitigation: lock behind Railway's edge rate-limit / Cloudflare Turnstile before public launch.
+- **Password policy is minimum-length-only.** 8 chars, no complexity rules — a deliberate UX choice for the demo. Bump via `_PASSWORD_MIN` in `schemas/user.py` when policy hardens.
+- **Demo fallback is enabled outside production.** Anyone running the dev server without a token still reaches `demo@skinmatch.local`. Set `APP_ENV=production` in any environment that holds real user data.
+
+---
+
 ## 📸 Smart Camera capture
 
 The `/smart-camera` route is an LRP-style guided 3-shot capture

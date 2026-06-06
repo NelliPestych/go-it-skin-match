@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
-import { api } from "../services/api";
+import { api, isUnauthorized } from "../services/api";
 import {
   mapConcernsToLegacy,
   mapSensitivityToLegacyBool,
@@ -115,7 +115,11 @@ export default function AnalyzingPage() {
             state: { fromAnalyzing: true },
           });
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Analysis failed");
+        // 401 → AuthProvider clears the session and RequireAuth
+        // bounces this page to /auth.  Don't flash "Unauthorized" on
+        // the way out.
+        if (cancelled || isUnauthorized(err)) return;
+        setError(err instanceof Error ? err.message : "Analysis failed");
       }
     })();
 
