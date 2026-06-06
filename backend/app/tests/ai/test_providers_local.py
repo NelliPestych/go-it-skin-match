@@ -27,9 +27,7 @@ from app.schemas.skin_analysis import NormalizedSkinAnalysisResult
 
 
 def _synthetic_image(color=(180, 150, 140), size=256) -> bytes:
-    """Same synthetic-image helper as test_analysis.py — keeps the
-    heuristic in `MEDIUM`-ish territory without depending on any
-    real face data."""
+    """Noisy synthetic JPEG; keeps the heuristic in MEDIUM-ish territory."""
     arr = np.full((size, size, 3), color, dtype=np.uint8)
     noise = np.random.randint(-15, 15, arr.shape, dtype=np.int16)
     arr = np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
@@ -57,14 +55,12 @@ def test_local_provider_returns_normalized_result():
 
 
 def test_local_provider_populates_new_metrics():
-    """The local provider must emit *every* normalized field — even
-    those the heuristic doesn't natively measure — so downstream
-    consumers don't have to special-case missing keys."""
+    """Every normalized field emitted (even the ones the heuristic doesn't measure)."""
     provider = LocalHeuristicProvider()
     result = provider.analyze(_synthetic_image())
 
     assert result.oiliness in Level
-    assert result.acne == Level.LOW  # conservative default, see provider docstring
+    assert result.acne == Level.LOW
     assert result.fine_lines == Level.LOW
     assert result.texture in Level
 
@@ -83,8 +79,7 @@ def test_local_provider_oiliness_mirrors_skin_type():
 
 
 def test_local_provider_ignores_side_poses():
-    """Side images are accepted on the interface but the heuristic
-    drops them — the result must be identical with or without them."""
+    """Side images accepted but dropped — result identical with or without."""
     provider = LocalHeuristicProvider()
     front = _synthetic_image()
     left = _synthetic_image(color=(100, 90, 80))
@@ -99,9 +94,7 @@ def test_local_provider_ignores_side_poses():
 
 
 def test_to_skin_features_preserves_legacy_shape():
-    """The HTTP response model is still `SkinFeatures`; projecting
-    the normalized result must round-trip every legacy field
-    bit-identical."""
+    """Projection to SkinFeatures round-trips every legacy field bit-identical."""
     provider = LocalHeuristicProvider()
     result = provider.analyze(_synthetic_image())
     features = result.to_skin_features()
@@ -116,10 +109,7 @@ def test_to_skin_features_preserves_legacy_shape():
 
 
 def test_features_json_dump_contains_legacy_keys():
-    """Downstream services read `features_json.get("skin_type")` &
-    friends — the normalized model_dump must keep those exact keys
-    at the top level so the existing rec / plan code keeps working
-    without branching."""
+    """Top-level legacy keys preserved so rec / plan code keeps working unchanged."""
     provider = LocalHeuristicProvider()
     result = provider.analyze(_synthetic_image())
     dumped = result.model_dump(mode="json")
@@ -134,7 +124,6 @@ def test_features_json_dump_contains_legacy_keys():
     ):
         assert key in dumped, f"legacy key {key!r} missing from features_json dump"
 
-    # And the new bits are persisted, too — used by future phases.
     for key in ("oiliness", "acne", "fine_lines", "texture", "provider", "analyzed_at"):
         assert key in dumped
 
@@ -143,8 +132,7 @@ def test_features_json_dump_contains_legacy_keys():
 
 
 def test_factory_returns_local_provider_by_default():
-    # `get_skin_analysis_provider` is `lru_cache`d so clear it first
-    # in case an earlier test populated the cache.
+    # Clear lru_cache from prior tests.
     factory_fn.cache_clear()
     provider = get_skin_analysis_provider()
     assert isinstance(provider, LocalHeuristicProvider)

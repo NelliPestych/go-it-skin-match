@@ -1,49 +1,7 @@
 /**
- * Canvas overlay drawn on top of the live <video>.
- *
- * Renders, per frame:
- *   1. A vignette mask: dim outside the framing oval, transparent
- *      inside — so the user instinctively centres their face.
- *   2. The face mesh from MediaPipe FACE_LANDMARKS_TESSELATION
- *      (~1900 short edges) drawn in THREE passes that together
- *      produce a "wet-sand" wave-of-light animation — the mesh
- *      brightens *as the wave passes through it* and gradually
- *      decays back to baseline behind the leading edge, like wet
- *      sand drying after a wave recedes:
- *        a) dim baseline   (α 0.32) — always visible while a face
- *                                     is detected.
- *        b) wet-trail gradient    — same mesh re-stroked, but only
- *                                     within a horizontal band that
- *                                     follows the leading edge.
- *                                     Brightness peaks AT the
- *                                     leading edge and fades to
- *                                     zero over a fixed `decay`
- *                                     distance behind it (i.e.
- *                                     below, since the wave moves
- *                                     bottom→top). Above the
- *                                     leading edge: untouched dim
- *                                     baseline. Far below: also
- *                                     baseline only — the trail
- *                                     has "dried".
- *        c) leading-edge "glow strip" — thin clipped band right at
- *                                     the leading edge, restroked
- *                                     at full α with a heavy
- *                                     shadowBlur, so the front of
- *                                     the wave reads as a bright
- *                                     bar of light.
- *   3. The oval ring on top, in white-dashed / green / red depending
- *      on the overall state.
- *
- * The drawing loop runs in its own `requestAnimationFrame` and reads
- * `landmarksRef.current` every frame so the mesh tracks the face at
- * native FPS even though the parent's React state for `useFaceMesh`
- * is throttled.
- *
- * Usage:
- * - Place inside the same parent that mirrors the <video> via
- *   `transform: scaleX(-1)` so mesh coordinates align visually with
- *   the selfie preview.
- * - `pointer-events: none` so the overlay never steals taps.
+ * Canvas overlay on the live <video>: vignette + mesh "wet-sand" wave + state-coloured oval ring.
+ * Three-pass mesh draw (dim baseline / wet-trail gradient / leading-edge glow strip).
+ * Owns its own RAF; reads landmarksRef every frame for native-FPS tracking.
  */
 import { FaceLandmarker } from "@mediapipe/tasks-vision";
 import { useEffect, useRef } from "react";
@@ -57,12 +15,7 @@ interface Props {
   landmarksRef: React.MutableRefObject<FaceLandmark[]>;
   hasFace: boolean;
   state: OverlayState;
-  /**
-   * Live <video> element. Used to read `videoWidth` / `videoHeight` so
-   * the mesh can be mapped through the same `object-fit: cover` crop
-   * that the browser applies to the video — otherwise landmarks
-   * render shifted relative to the visible face.
-   */
+  /** Used for videoWidth/Height to mirror object-fit:cover crop on mesh. */
   videoEl: HTMLVideoElement | null;
 }
 
@@ -72,7 +25,7 @@ const RING_COLOR: Record<OverlayState, string> = {
   fail: "#ef4444",
 };
 
-/** Solid mesh colour; alpha is controlled per-pass via globalAlpha. */
+// Alpha controlled per-pass via globalAlpha.
 const MESH_COLOR: Record<OverlayState, string> = {
   scanning: "#ffffff",
   pass: "#10b981",

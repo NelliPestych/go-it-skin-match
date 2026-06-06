@@ -24,9 +24,7 @@
   --lavender: #f1e9ff;
   --sky: #e0f2fe;
   --peach: #e5c1b8;
-  /* Soft peach pastel — matches the lightness of the other pastels
-     for backgrounds (rows, cards).  The base --peach stays at its
-     deeper tint for accents like meter fills. */
+  /* Lighter peach for backgrounds; --peach stays deeper for meter fills. */
   --peach-soft: #fce4d8;
   --gold: #d4af37;
 
@@ -75,10 +73,7 @@ body,
 #root {
   margin: 0;
   padding: 0;
-  /* Dual-fallback: 100vh for browsers without dvh support, then
-     overridden by 100dvh where supported.  Dynamic viewport unit
-     prevents the page from "jumping" on iOS Safari when the
-     address bar shows/hides. */
+  /* 100dvh prevents iOS Safari address-bar jumps; 100vh is the fallback. */
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-cream);
@@ -108,15 +103,11 @@ select {
   font: inherit;
 }
 
-/* =========================================================
-   Mobile frame — desktop shows centered iPhone-sized viewport,
-   on mobile it becomes the full screen.
-   ========================================================= */
+/* Mobile frame — full screen on phones, 375 px centred on desktop. */
 
 .mobile-frame {
   width: 100%;
-  /* Full viewport on real phones; capped to the 375 px desktop frame
-     inside the >=768 px media query below. */
+  /* Full-bleed on phones; capped via the >=768px media query below. */
   max-width: none;
   min-height: 100vh;
   min-height: 100dvh;
@@ -450,9 +441,7 @@ select {
   color: white;
 }
 
-/* Concern square card.  Sized for grids of any length — the
-   `.concerns-grid > :last-child:nth-child(odd)` rule below takes
-   care of an orphan card on an odd-count grid (7 options). */
+/* Concern square card; odd-grid orphan handled below via :last-child:nth-child(odd). */
 .option-square {
   width: 100%;
   border-radius: var(--r-xl);
@@ -465,9 +454,7 @@ select {
   gap: 8px;
   text-align: left;
   position: relative;
-  /* min-height kept (slightly tighter than before) so cards still
-     line up vertically across the grid even when one label wraps
-     to two lines and its neighbour stays single-line. */
+  /* Keeps cards level even when one label wraps to two lines. */
   min-height: 84px;
   transition: transform 0.1s ease;
 }
@@ -641,10 +628,7 @@ select {
   text-transform: uppercase;
 }
 
-/* Quiz pages — fixed bottom CTA, same UX pattern as ResultsPage.
-   The screen reserves bottom padding so the last option-card never
-   sits under the floating CTA; a fade mask above the CTA softens
-   the boundary between scrolling content and the pinned button. */
+/* Quiz pages — fixed bottom CTA, fade mask above; same pattern as ResultsPage. */
 .quiz-screen {
   padding-bottom: 120px;
 }
@@ -677,49 +661,18 @@ select {
    Intro / landing screen — single-viewport layout
    ========================================================= */
 
-/* Hero block ---------------------------------------------------------
-   A rounded card that hosts a face-mesh portrait photo plus two
-   overlay layers:
-     1. `.intro-hero-image`  — the photo itself, `object-fit: cover`.
-     2. `.intro-hero-fade`   — a soft cream → transparent gradient at
-                               the bottom so the photo blends into the
-                               page background instead of ending on a
-                               hard horizontal edge.
-     3. `.intro-hero-scanline` — a slow scan-line that drops top → bottom
-                                 over the photo (mix-blend overlay) and
-                                 reinforces the "AI is scanning" feel.
-   Animation pauses under `prefers-reduced-motion: reduce`. */
+/* Hero — face portrait + bottom-fade + scan-line (paused under prefers-reduced-motion). */
 .intro-hero {
   position: relative;
   margin: 8px var(--side-margin) 16px;
-  /* Flex-grow so the hero absorbs free vertical space on tall
-     viewports (iPhone Pro Max, Pixel 8) instead of leaving a gap
-     above the CTA.  Floor keeps the face legible on small phones
-     (Galaxy S8 360x640, iPhone SE 375x667); ceiling stops the hero
-     from getting cartoonishly tall on iPad / desktop frames. */
+  /* Flex-grow absorbs free vertical space on tall viewports. */
   flex: 1 1 auto;
-  /* Adaptive floor — on tall phones the hero still gets ~240 px of
-     headroom, but on iPhone-5/SE-class viewports (568 px tall) the
-     min-height shrinks to ~180 px so the rest of the layout (copy,
-     chips, CTA) stays inside one viewport without scroll. */
+  /* Floor 180 px (iPhone SE class); ceiling stops cartoonish stretch on iPad. */
   min-height: clamp(180px, 32dvh, 240px);
   max-height: clamp(280px, 52dvh, 460px);
   border-radius: var(--r-2xl);
   overflow: hidden;
-  /* Premium 3-layer gradient.  The face PNG now has a transparent
-     background, so this gradient is what the viewer actually SEES
-     around the face — including the small slivers on the left and
-     right where `object-fit: contain` leaves room.  Composition:
-       1. Soft rose glow at the top-centre — warms the area behind
-          the hair, ties into the brand `--rose` token.
-       2. Lavender glow at the bottom-centre — cools off the lower
-          third, ties into `--lavender`.
-       3. Warm cream → peach linear base, low-contrast and slightly
-          gradient so the background reads as alive, not flat.
-     Numbers are tuned so that no single layer dominates: each
-     contributes ~25–40 % alpha, the base does the rest.  The
-     result feels like a soft-box studio lighting frame around the
-     portrait — premium beauty-tech rather than poster-flat. */
+  /* Soft-box look: rose glow top, lavender glow bottom, cream→peach base. */
   background:
     radial-gradient(70% 55% at 50% 8%, rgba(253, 228, 228, 0.85) 0%, transparent 75%),
     radial-gradient(75% 55% at 50% 100%, rgba(241, 233, 255, 0.7) 0%, transparent 75%),
@@ -732,12 +685,7 @@ select {
   inset: 0;
   width: 100%;
   height: 100%;
-  /* `contain` shows the photo at its full original aspect ratio —
-     no crop on the top of the head, no crop under the chin.  The
-     PNG is pre-cropped to its alpha bounding box (721 × 1092) so
-     the visible content is the face only; the slivers on the left
-     and right of the hero are filled by the gradient above, which
-     reads as a soft-box frame around the portrait. */
+  /* contain preserves the original aspect ratio; slivers filled by the gradient. */
   object-fit: contain;
   object-position: center;
   display: block;
@@ -757,10 +705,7 @@ select {
   );
 }
 
-/* Scan-line: a soft white band that travels top→bottom on a slow
-   loop.  `mix-blend-mode: overlay` keeps the band tinted by the
-   skin tones underneath instead of pasting a flat white bar on top
-   of the face. */
+/* Scan-line — white band travelling top→bottom; mix-blend overlay tints with skin. */
 .intro-hero-scanline {
   position: absolute;
   inset: 0;
@@ -822,20 +767,12 @@ select {
   max-width: clamp(240px, 78vw, 320px);
 }
 
-/* Benefit chips ------------------------------------------------------
-   Three short, scannable labels in a single row.  No descriptions —
-   the headline + subhead already explain the value, the chips just
-   triangulate it (AI + personal + scientific). */
+/* Benefit chips — single row at 375 px viewport; wrap is a defensive fallback. */
 .intro-chips {
   display: flex;
   justify-content: center;
   gap: 6px;
-  /* Tighter horizontal padding (16 px each side instead of the
-     32 px --side-margin) buys us ~32 px of chip-row width so the
-     three chips fit on a single row at 375 px viewport.  Wrap
-     stays enabled as a defensive fallback for smaller widths.
-     Vertical padding is fluid so the chip row breathes on tall
-     viewports without dropping the CTA off-screen on short ones. */
+  /* 16 px side padding (vs 32 px --side-margin) buys row width for 3 chips. */
   padding: clamp(6px, 1.6vh, 12px) 16px clamp(4px, 1vh, 8px);
   flex-wrap: wrap;
 }
@@ -1283,23 +1220,14 @@ select {
    Results screen — skin profile metric cards
    ========================================================= */
 
-/* Skin profile grid — 2 columns of compact metric rows.  Each row is
-   a small card with a label / value header and a thin meter bar.
-   Stays light-weight so the page never feels like a clinical dashboard. */
+/* Skin profile grid — 2-col compact rows; minmax(0,1fr) avoids uneven widths. */
 .profile-grid {
   display: grid;
-  /* `minmax(0, 1fr)` (instead of plain `1fr`) prevents columns from
-     widening to fit their longest cell, which was producing visibly
-     uneven column widths when row-value text differed (e.g. "Low"
-     vs "Medium"). */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
 
-/* When the metric list has an odd count, the orphan card would
-   otherwise sit alone in the left column at half width — making
-   the section look unbalanced.  Let the last card span both
-   columns so the grid reads as a complete block. */
+/* Odd-count grid: last card spans both cols so the section stays balanced. */
 .profile-grid > .profile-row:last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
@@ -1319,18 +1247,12 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* `min-width: 0` lets the flex children shrink below their
-     intrinsic content width — needed so the label can truncate
-     with an ellipsis on narrow viewports (360px) where long words
-     like "Pigmentation" would otherwise push past the card edge. */
+  /* Allow flex children to shrink so the label can ellipsis-truncate. */
   min-width: 0;
 }
 
 .profile-row .row-label {
-  /* Take all the remaining row-head width that the value doesn't
-     claim, and truncate cleanly when there isn't enough room.  The
-     full label stays accessible via the `title` attribute set on
-     the span by ResultsPage. */
+  /* Take remaining width; full text accessible via the title attribute. */
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -1343,8 +1265,7 @@ select {
 }
 
 .profile-row .row-value {
-  /* Value never shrinks or wraps — readability of the rating
-     wins over the label.  The label loses gracefully (ellipsis). */
+  /* Never shrinks/wraps — readability of the rating wins over the label. */
   flex-shrink: 0;
   white-space: nowrap;
   font-size: 11px;
@@ -1365,11 +1286,7 @@ select {
   transition: width 0.6s ease;
 }
 
-/* All meter fills share one lavender → rose gradient — the same
-   pastel pair the Profile tab panel uses for its tint.  Per-tone
-   selectors are kept so the markup stays untouched, but they all
-   collapse to the same fill: bars read as one calm, cohesive ribbon
-   that lives inside the panel's own colour story. */
+/* All meter fills share one lavender→rose gradient (per-tone selectors collapse to one fill). */
 .profile-row[data-tone="rose"] .meter-fill,
 .profile-row[data-tone="mint"] .meter-fill,
 .profile-row[data-tone="cream"] .meter-fill,
@@ -1379,8 +1296,7 @@ select {
   background: linear-gradient(to right, #d3c2f3 0%, #fbc8c8 100%);
 }
 
-/* Soft "Show more" toggle below the metric grid — pill-shaped, low
-   contrast, no urgency.  Sits naturally inside the profile section. */
+/* "Show more" pill toggle below the metric grid. */
 .show-more-btn {
   margin: 12px auto 0;
   display: block;
@@ -1434,12 +1350,7 @@ select {
   margin-top: 12px;
 }
 
-/* When the option count is odd (7 in the current quiz config), the
-   last card would otherwise sit alone in a half-width column.
-   Span it across both columns AND switch to a horizontal layout so
-   the orphan reads as a deliberate full-width pill rather than an
-   unfilled half-row.  Generic rule — works for 5 / 7 / 9 / …
-   options and is a no-op for even counts. */
+/* Odd-count grid orphan: span full width + horizontal layout. */
 .concerns-grid > .option-square:last-child:nth-child(odd) {
   grid-column: 1 / -1;
   flex-direction: row;
@@ -1587,9 +1498,7 @@ select {
   color: var(--text);
 }
 
-/* Underline modifier — used where the link needs to clearly read as
-   a tappable text link rather than a plain caption (e.g. the demoted
-   "Upload photo" secondary action on the capture intro screen). */
+/* Underline modifier — makes a text link clearly tappable. */
 .text-link--underline {
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1604,11 +1513,7 @@ select {
   text-align: center;
 }
 
-/* =========================================================
-   Smart Camera shell (commit #2)
-   Prefix `sc-` keeps the new feature visually scoped and
-   prevents collision with anything else in this stylesheet.
-   ========================================================= */
+/* Smart Camera shell — `sc-` prefix scopes the feature. */
 
 .sc-screen {
   position: relative;
@@ -1797,17 +1702,13 @@ select {
 }
 
 
-/* =========================================================
-   Smart Camera intro (commit #3) — list of pre-shot rules
-   ========================================================= */
+/* Smart Camera intro — pre-shot rule list. */
 
 .intro-instructions {
   padding: 16px var(--side-margin) 8px;
 }
 
-/* On short viewports, tighten the instructions list itself so the
-   four rules fit closer together: less outer padding, smaller per-
-   item top/bottom padding, slightly tighter eyebrow margin. */
+/* Short viewports — tighten the instructions list. */
 @media (max-height: 640px) {
   .intro-instructions {
     padding: 6px var(--side-margin) 0;
@@ -1853,9 +1754,7 @@ select {
   pointer-events: auto;
 }
 
-/* On short viewports (iPhone 5/SE), the CTA pill shrinks (driven by
-   the global `.pill-btn` short-viewport rule) so the spacer beneath
-   the content can shrink too. */
+/* iPhone SE class — global .pill-btn rule shrinks the CTA, so trim spacer. */
 @media (max-height: 640px) {
   .intro-instructions-screen {
     padding-bottom: 118px;
@@ -1907,10 +1806,7 @@ select {
 }
 
 
-/* =========================================================
-   Face oval overlay (commit #6) — canvas drawn on top of
-   the live <video> by FaceOvalOverlay.
-   ========================================================= */
+/* FaceOvalOverlay canvas. */
 
 .sc-face-overlay {
   position: absolute;
@@ -1919,16 +1815,12 @@ select {
   height: 100%;
   pointer-events: none;
   z-index: 2;
-  /* Mirror to match the selfie-flipped <video> below; landmarks are
-     drawn in un-mirrored source coords and the CSS flip aligns them
-     with what the user sees. */
+  /* Mirror to match the selfie-flipped video. */
   transform: scaleX(-1);
 }
 
 
-/* =========================================================
-   Status panel + guidance text (commit #7)
-   ========================================================= */
+/* Status panel + guidance text. */
 
 /* Top status panel — 3 chips + close button. */
 .sc-status-panel {
@@ -1950,10 +1842,7 @@ select {
 
 .sc-chip {
   flex: 1;
-  /* Vertical centring matters because `.sc-chips` stretches all
-     chips to the tallest sibling — single-line labels (e.g.
-     "Lighting") would otherwise float at the top of a chip whose
-     height was set by a wrapping neighbour ("Face position"). */
+  /* sc-chips stretches all chips to the tallest sibling; centre each label. */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1999,10 +1888,7 @@ select {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Centred guidance text above the oval. Tight against the top of
-   the stage so it visually pairs with the side chevron arrow at the
-   same vertical level (see `.sc-arrow`), matching LRP SpotScan.
-   Kept above 4 % so the headline never bleeds onto the oval rim. */
+/* Guidance text above the oval — pairs with `.sc-arrow` at same vertical level. */
 .sc-guidance {
   position: absolute;
   top: 1%;
@@ -2063,12 +1949,9 @@ select {
 }
 
 
-/* =========================================================
-   Countdown badge + capture progress (commit #9)
-   ========================================================= */
+/* Countdown badge + capture progress. */
 
-/* Big 3 → 2 → 1 in the centre of the camera frame. Re-mounted via
-   `key={digit}` so the pop animation replays on every tick. */
+/* Big 3 → 2 → 1; re-mounted via key={digit} so pop animation replays per tick. */
 .sc-countdown {
   position: absolute;
   top: 50%;
@@ -2140,11 +2023,9 @@ select {
 }
 
 
-/* =========================================================
-   SmartCameraPage wiring (commit #10) — flash + final review
-   ========================================================= */
+/* Flash overlay + final-review screen. */
 
-/* White flash overlay played for ~220 ms before the canvas grab. */
+/* White flash ~220 ms before the canvas grab. */
 .sc-flash {
   position: absolute;
   inset: 0;
@@ -2159,8 +2040,7 @@ select {
   100% { opacity: 0; }
 }
 
-/* Final review — light cream theme. Reuses .app-header, PillButton,
-   `.screen-footer` from the rest of the app for consistency. */
+/* Final review — light cream theme. */
 .sc-review-screen {
   display: flex;
   flex-direction: column;
@@ -2189,8 +2069,7 @@ select {
   object-fit: cover;
   border-radius: var(--r-md);
   background: #efe7df;
-  /* Counter-mirror so the thumbnail reads as a natural selfie (the
-     captured frame itself is un-mirrored on disk). */
+  /* Counter-mirror so the thumbnail reads as a natural selfie. */
   transform: scaleX(-1);
 }
 
@@ -2238,21 +2117,10 @@ select {
 }
 
 
-/* =========================================================
-   Pose direction arrow (hotfix after commit #10)
-   ========================================================= */
+/* Pose direction arrow — aligned with .sc-guidance via margin (translateY clashes with the bounce keyframe). */
 
 .sc-arrow {
   position: absolute;
-  /* Sits level with `.sc-guidance` (top 2.5 %) so the chevron and
-     the headline read as one row, à la LRP SpotScan. `top: 2.5 %`
-     aligns the arrow box top with the headline. The headline on
-     side poses ("Turn your face left/right") wraps to two lines at
-     15 px / line-height 1.2 → ~36 px tall; we offset the 40 px
-     arrow box by -2 px so its centre lands at the centre of that
-     two-line block instead of on the first line.  translateY would
-     conflict with the bounce keyframe (which uses translateX +
-     opacity), so we use margin instead. */
   top: 2.5%;
   margin-top: -2px;
   width: 40px;
@@ -2345,9 +2213,7 @@ select {
   position: absolute;
   inset: -20px -40px auto -40px;
   height: 200px;
-  /* Peach + lavender pair — warm sunset palette: soft peach blob
-     top-left bleeding into a lilac blob bottom-right.  Both stay
-     low-opacity so the score ring remains the focal point. */
+  /* Soft peach + lavender blobs; low opacity so the score ring stays focal. */
   background:
     radial-gradient(80% 60% at 20% 30%, rgba(247, 196, 175, 0.26) 0%, transparent 60%),
     radial-gradient(60% 50% at 90% 70%, rgba(200, 179, 240, 0.24) 0%, transparent 65%);
@@ -2390,9 +2256,7 @@ select {
 .results-title {
   font-family: "Playfair Display", serif;
   font-weight: 400;
-  /* Fluid: 24px on 360px viewport (gives the score-ring + title
-     row room to breathe with multi-word skin types) → 30px from
-     ~420px upward. */
+  /* 24px → 30px fluid; gives the score-ring row room at 360 px. */
   font-size: clamp(24px, 7vw, 30px);
   line-height: 1.05;
   letter-spacing: -0.5px;
@@ -2400,10 +2264,7 @@ select {
   text-transform: capitalize;
 }
 
-/* Circular gauge — beauty-tech signature element. Two stacked SVG
-   circles (track + animated stroke), centered numeric score, and a
-   tier-aware gradient stroke. The fill animates from 0 to its
-   dash-offset on mount, sweeping clockwise. */
+/* Circular score-ring — stacked SVG track + animated dash-offset fill. */
 .score-ring {
   position: relative;
   width: 80px;
@@ -2441,9 +2302,7 @@ select {
   transition: stroke-dashoffset 1.1s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* Tier-specific gradient overrides removed — the score ring now
-   uses a fixed 5-stop pastel rainbow defined inline in ResultsPage's
-   SVG <defs>, so the colours stay consistent at every tier. */
+/* Tier-specific overrides removed; gradient is inline in ResultsPage SVG defs. */
 
 .score-ring-center {
   position: absolute;
@@ -2493,9 +2352,7 @@ select {
   margin-bottom: 14px;
 }
 
-/* Confidence dot uses soft pastel mid-tones (same family as the
-   Profile meter fills) so the high / medium / low semantics still
-   read at a glance but feel calm instead of clinical. */
+/* Confidence dot — pastel mid-tones for calm hi/mid/lo legibility. */
 .results-meta-dot {
   width: 6px;
   height: 6px;
@@ -2519,8 +2376,7 @@ select {
   color: var(--text-50);
 }
 
-/* Targets tab — numbered priority list. Bigger touch targets than
-   a chip strip and feels like a dedicated "to-do" page. */
+/* Targets tab — numbered priority list with large touch targets. */
 .targets-tag {
   margin: 0 0 14px;
   font-size: 13px;
@@ -2636,13 +2492,7 @@ select {
   transition: filter 0.18s ease, color 0.18s ease;
 }
 
-/* Pastel per tab — picks from the same palette as the quiz cards
-   (rose / sky / cream / lavender / mint) so the report feels like
-   a continuation of the rest of the app.  Each tab carries a small
-   3-stop gradient that meets the neighbouring tab on the SAME mid
-   colour, so the whole strip reads as one continuous pastel wave
-   even though the chips overlap.  The midpoint colours are the RGB
-   averages of the two pastel neighbours. */
+/* Per-tab 3-stop pastel — midpoints are RGB averages of neighbouring pastels. */
 .seg-tab#results-tab-profile {
   --tab-bg: var(--lavender);
   background: linear-gradient(to right, var(--lavender) 0%, var(--lavender) 50%, #f7e7f2 100%);
@@ -2669,8 +2519,7 @@ select {
   margin-left: -10px;
 }
 
-/* Descending z-index so each earlier tab covers part of the next
-   one — first tab is on top of the stack. */
+/* Descending z-index — first tab on top, each covers part of the next. */
 .seg-tab:nth-child(1) { z-index: 5; }
 .seg-tab:nth-child(2) { z-index: 4; }
 .seg-tab:nth-child(3) { z-index: 3; }
@@ -2682,20 +2531,7 @@ select {
   color: var(--text);
 }
 
-/* Active tab keeps its 3-stop pastel gradient so the strip reads as
-   one continuous wave even on the active chip.  Active state is
-   conveyed via text contrast, a hairline gray border on top and
-   sides (no bottom — the chip merges into the panel below), and a
-   z-index lift.
-
-   `margin-bottom: -1px` makes the active chip's outer box extend
-   exactly 1px past the strip's natural bottom — the same 1px the
-   panel uses for its border-top.  That keeps the chip's vertical
-   side borders ending at the SAME y as the panel border-top, so
-   the L-corner stitches piece-to-piece without a hanging tail.
-   The chip is drawn above the panel (z-index 10), so its bottom
-   1px gradient row also covers any panel-border-top segment that
-   sits directly under the chip. */
+/* Active tab — hairline border on three sides; -1px margin merges with the panel. */
 .seg-tab[data-active="true"] {
   color: var(--text);
   border-top: 1px solid var(--text-10);
@@ -2713,16 +2549,7 @@ select {
 
 /* ── Tab panel ───────────────────────────────────────────── */
 
-/* Each panel is a full-bleed page that continues its OWN tab's
-   3-stop pastel slice downward.  Two layered backgrounds:
-
-   1. Top layer (vertical) — transparent at the top, fading to the
-      page cream by the bottom, so the panel's tint dissolves into
-      the surrounding cream further down.
-   2. Bottom layer (horizontal) — `--panel-tint` is set per panel id
-      below; it mirrors the active tab's 3-stop chip gradient so the
-      panel only carries that tab's colours (lavender shades for
-      Profile, rose shades for Targets, etc.). */
+/* Each panel continues its tab's 3-stop pastel downward (vertical fade + horizontal --panel-tint). */
 .tab-panel {
   display: flex;
   flex-direction: column;
@@ -2731,12 +2558,7 @@ select {
   flex: 1;
   margin: -20px calc(-1 * var(--side-margin));
   padding: 24px var(--side-margin) 28px;
-  /* Hairline along the top of the panel.  Combined with the active
-     tab chip's top/left/right borders, it forms the classic "tab
-     folder" outline — the chip's vertical edges meet this line at
-     the chip's bottom corners, while the chip's negative margin
-     hides the segment of this line that runs directly under the
-     chip. */
+  /* Top hairline + active chip's three-side border = classic tab-folder outline. */
   border-top: 1px solid var(--text-10);
   background:
     linear-gradient(
@@ -2748,14 +2570,7 @@ select {
     var(--panel-tint, none);
 }
 
-/* Per-panel tint — the gradient stops are positioned at the EXACT
-   x-positions where the active chip lives (each chip occupies a 20%
-   slot, centred at 10/30/50/70/90% of the strip).  Inside that slot
-   the panel shows the same 3-stop transition as the chip, so the
-   seam directly under the chip is perfectly continuous (no colour
-   jump).  Outside the slot, the gradient just holds at the chip's
-   edge colour — which is also what the neighbouring strip chips
-   use, so the panel reads as one stitched fabric with the strip. */
+/* Per-panel tint — chip slots are 20% each; gradient stops match so the seam is continuous. */
 #results-panel-profile {
   --panel-tint: linear-gradient(
     to right,
@@ -2809,29 +2624,19 @@ select {
   display: none;
 }
 
-/* Profile tab specifically needs narrower outer padding so the
-   2-col card grid gets the extra horizontal room it needs to fit
-   the longest label+value pair ("Pigmentation" + "Medium") on a
-   single line at 360px.  Other tabs (Targets numbered list, Picks
-   horizontal scroller, Routine steps, Insights bullets) keep the
-   wider editorial inset of the base .tab-panel rule. */
+/* Profile tab — narrower outer padding so "Pigmentation"+"Medium" fits one line at 360px. */
 .tab-panel:has(> .profile-grid) {
   padding-left: 12px;
   padding-right: 12px;
 }
 
-/* Picks tab — tighter outer padding so the horizontal product
-   row reads as a wide editorial gallery and the first card sits
-   closer to the screen edge than the heading inset (creates a
-   subtle "swipeable" affordance). */
+/* Picks tab — tighter padding so the carousel reads as editorial-gallery. */
 .tab-panel:has(> .recos-head) {
   padding-left: 20px;
   padding-right: 20px;
 }
 
-/* Profile — 2-col card grid uses .profile-grid / .profile-row from the
-   AI Skin Report block above. The v2 tuning here just gives the
-   cards slightly softer corners and a calmer label weight. */
+/* Profile v2 — softer corners + calmer label weight on the shared .profile-row. */
 .results-v2 .profile-row {
   border-radius: var(--r-lg);
   padding: 14px 16px;
@@ -2840,9 +2645,7 @@ select {
 
 .results-v2 .profile-row .row-label {
   font-weight: 600;
-  /* Slightly smaller than the default 13px so the longest label
-     pair ("Pigmentation" + "Medium") fits on one line at 360px
-     once the Profile panel's outer padding is tightened. */
+  /* Down from 13 px so the longest "Pigmentation"+"Medium" pair fits at 360 px. */
   font-size: 11.5px;
   letter-spacing: -0.05px;
 }
@@ -2881,9 +2684,7 @@ select {
   color: var(--text);
 }
 
-/* Insight bullet is now a small sparkle SVG.  Box is fixed-size so
-   the leading column aligns even if the SVG path changes; flex-shrink
-   stops it from collapsing on narrow text lines. */
+/* Sparkle SVG bullet — fixed box so leading column aligns regardless of path. */
 .insights-bullet {
   display: inline-flex;
   align-items: center;
@@ -2899,10 +2700,7 @@ select {
   display: block;
 }
 
-/* Routine — header row pairs the dynamic period title with the
-   icon-only switcher.  Title is the loud label ("Morning" / "Evening")
-   that swaps when the user taps a side of the switcher; the switcher
-   shows just sun and moon glyphs. */
+/* Routine header — dynamic period title + sun/moon switcher. */
 .routine-header {
   display: flex;
   align-items: center;
@@ -2967,19 +2765,13 @@ select {
   line-height: 1;
 }
 
-/* Icon-only variant: the buttons are square-ish glyph slots, no text
-   label inside.  Larger icon, tighter padding so the pill stays
-   visually balanced next to the period title. */
+/* Icon-only variant — glyph slots, no label inside. */
 .period-switch--icon-only {
   margin-bottom: 0;
-  /* Switcher carries a strong 1px black border so it reads as a
-     deliberate UI control against the lavender Routine panel. */
   border-color: var(--text);
 }
 
-/* Active pill picks up the Routine tab's sky so the switcher feels
-   stitched to the surrounding pastel rather than a foreign black
-   chip.  Dark ink stays the foreground for legibility. */
+/* Active pill picks up the Routine tab's sky so the switcher stitches into the panel. */
 .period-switch--icon-only .period-switch-btn[data-active="true"] {
   background: var(--sky);
   color: var(--text);
@@ -3162,38 +2954,23 @@ select {
 
 .reco-row {
   display: flex;
-  /* Wider gap between cards so the gallery feels editorial /
-     premium instead of a tight list view. */
   gap: 16px;
   overflow-x: auto;
-  /* `proximity` snap (vs. `mandatory`) makes the swipe feel fluid:
-     the browser doesn't keep re-snapping mid-gesture, it only nudges
-     to the nearest snap-point if the user releases close to one.
-     Gives a much more native, momentum-aware feel on touch. */
+  /* proximity (vs mandatory) snap feels native — no mid-gesture re-snapping. */
   scroll-snap-type: x proximity;
-  /* Aligns the snap target start to (row-left + 20px) so the first
-     card visually rests at the same 20px inset that the heading
-     uses (matches the row's padding-left). */
+  /* Snap start at row-left + 20px so the first card aligns with the heading inset. */
   scroll-padding-left: 20px;
   scroll-padding-right: 20px;
-  /* Stop horizontal swipe momentum at this scroller's edges — without
-     this the iOS rubber-band can drag the parent layout sideways and
-     leak the body background past the cream Picks panel. */
+  /* contain stops iOS rubber-band from dragging the parent layout. */
   overscroll-behavior-x: contain;
-  /* Smooth iOS momentum scroll. */
   -webkit-overflow-scrolling: touch;
-  /* Native horizontal pan on touch devices (so the JS pointer
-     handler can stay focused on mouse drag).  cursor: grab on
-     desktop signals "this is draggable". */
+  /* Native horizontal pan on touch; JS pointer handler covers mouse drag. */
   touch-action: pan-x;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
   margin: 0 -20px;
   padding: 0 20px 4px;
-  /* No edge mask — the fade introduced a visible transparent strip on
-     the right side over the cream-tinted Picks panel.  The natural
-     clip at the row's right edge is cleaner. */
 }
 
 .reco-row::-webkit-scrollbar {
@@ -3205,25 +2982,16 @@ select {
 }
 
 .reco-card {
-  /* Fluid card width: ~38% of viewport, capped to 124-152px so two
-     cards always peek past the horizontal-scroll mask hint, but
-     the cards never stretch on tablet-width mobile frames. */
+  /* ~38% viewport, 124-152px; two cards peek past on every mobile width. */
   flex: 0 0 clamp(124px, 38vw, 152px);
-  /* Belt-and-braces against subpixel rounding: width + min-width on
-     the card guarantee every chip in the row reports the same used
-     width to the layout engine, so two adjacent cards never end up
-     visibly different sizes on narrow viewports (iPhone 5 / SE at
-     320px was the case that surfaced this). */
+  /* Triple-set width so subpixel rounding can't desync adjacent cards on iPhone SE. */
   width: clamp(124px, 38vw, 152px);
   min-width: clamp(124px, 38vw, 152px);
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  /* Reset native button defaults so the card reads as a card, not
-     as a default-styled button.  The element is still semantically
-     a button (clickable; keyboard-accessible) — only the visual
-     defaults are stripped. */
+  /* Reset native button defaults; element stays semantically a button. */
   padding: 0;
   border: 0;
   background: transparent;
@@ -3235,8 +3003,7 @@ select {
 }
 
 .reco-card:active {
-  /* Tiny press feedback so taps register tactile-y.  No hover lift
-     because hover doesn't exist on the primary mobile target. */
+  /* Tactile press feedback; no hover lift (mobile-first). */
   transform: scale(0.985);
 }
 
@@ -3248,13 +3015,9 @@ select {
 
 .reco-image {
   width: 100%;
-  /* Square-ish image that scales with the (now fluid) card width
-     instead of being fixed at 132px. */
   aspect-ratio: 1 / 1;
   border-radius: var(--r-md);
-  /* Thin hairline frame around the product silhouette — gives the
-     image a defined edge against the cream Picks panel without
-     turning the whole card into a boxed tile. */
+  /* Hairline frame — defined edge without turning the card into a boxed tile. */
   border: 1px solid var(--text-10);
   display: flex;
   align-items: center;
@@ -3336,10 +3099,7 @@ select {
   }
 }
 
-/* Fade mask extends 80px above the CTA so the bar bg goes from
-   transparent at the top of the fade to solid before reaching the
-   saved-microcopy line. Keeps the floating CTA legible without
-   abrupt edges. */
+/* 80px fade mask above the CTA — transparent → solid before the saved-toast row. */
 .results-sticky::before {
   content: "";
   position: absolute;
@@ -3353,10 +3113,7 @@ select {
   pointer-events: auto;
 }
 
-/* Saved-to-history toast: pops in once after load, stays briefly,
-   then fades out AND collapses its height so the sticky Shop CTA
-   ends up alone at the bottom.  `forwards` keeps the final 0-state
-   pinned so React re-renders don't replay the animation. */
+/* Saved-to-history toast — pops in, holds, collapses height; forwards pins final state. */
 .results-saved {
   display: flex;
   align-items: center;
@@ -3410,16 +3167,12 @@ select {
   width: 14px;
   height: 14px;
   border-radius: var(--r-pill);
-  /* Pastel mint matches the meta-dot and the Profile mint meter
-     fill — same warm visual family.  Dark ink stays legible on
-     the lighter pastel disc. */
+  /* Pastel mint — matches the meta-dot + Profile meter family. */
   background: #b9ebb5;
   color: var(--text);
 }
 
-/* SVG check is drawn end-to-end via stroke-dasharray.  Delay matches
-   the toast's slide-in (parent animation hits full opacity around
-   ~450ms) so the line appears just as the chip becomes legible. */
+/* Stroke-dasharray draw; delay matches the toast slide-in (~450ms full opacity). */
 .results-saved-check svg path {
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
@@ -3432,20 +3185,7 @@ select {
   }
 }
 
-/* =========================================================
-   Reduced-motion blanket
-   ----------------------------------------------------------
-   Respects the OS-level `prefers-reduced-motion: reduce` setting
-   by collapsing every animation/transition on the page to ~0ms.
-   This covers the score-ring sweep, meter-fill width animation,
-   targets-item hover lift, countdown pop, sc-flash, sc-spinner,
-   analyzing-orbit scan-line, checklist blink, period-switch
-   transitions, etc. — without us having to scatter individual
-   `@media` overrides next to each animation declaration.
-   The earlier `.intro-hero-scanline` override at the landing
-   section stays in place (with `animation: none`) as a stronger,
-   intent-specific stop for that decorative loop.
-   ========================================================= */
+/* Reduced-motion blanket — collapses every animation/transition to ~0ms. */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3459,12 +3199,7 @@ select {
 }
 
 
-/* =========================================================
-   Auth page (Sign Up / Log In)
-   ----------------------------------------------------------
-   Reuses the landing-screen pastel tokens; intentionally bare
-   so the form doesn't fight the rest of the app's typography.
-   ========================================================= */
+/* Auth page (Sign Up / Log In) — reuses the landing pastel tokens. */
 
 .auth-screen {
   background: var(--bg-cream);

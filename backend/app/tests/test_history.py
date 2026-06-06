@@ -56,7 +56,7 @@ def test_history_lists_completed_flow(client):
     assert item["analysis_id"] == analysis_id
     assert item["skin_type"] in {"dry", "oily", "combination", "normal"}
     assert 0.0 <= item["confidence_score"] <= 1.0
-    # Eager generation in /quiz/submit means top products are populated
+    # /quiz/submit eagerly populates top_products.
     assert isinstance(item["top_products"], list)
     assert len(item["top_products"]) >= 1
 
@@ -98,12 +98,10 @@ def test_details_returns_full_snapshot(client):
 
 
 def test_recommendations_are_persisted_after_quiz(client):
-    """Recommendations are stored eagerly when the quiz is submitted —
-    so /recommendations/{id} returns rows even before its endpoint runs."""
+    """Eager persistence in /quiz/submit; /recommendations/{id} mirrors /details."""
     analysis_id = _full_flow(client)
     response = client.get(f"/analysis/{analysis_id}/details")
     body = response.json()
-    # Same recos visible through the regular endpoint
     response2 = client.get(f"/recommendations/{analysis_id}")
     assert response2.status_code == 200
     assert len(response2.json()["items"]) == len(body["recommendations"])

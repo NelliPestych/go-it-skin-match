@@ -13,9 +13,7 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-/** Thrown on 401 responses so the AuthProvider can react globally
- *  (clear stored token, route to /auth).  Kept distinct from a plain
- *  `Error` so callers can decide whether to surface or swallow it. */
+/** Thrown on 401 so the AuthProvider can react globally. */
 export class UnauthorizedError extends Error {
   constructor(message = "Unauthorized") {
     super(message);
@@ -23,40 +21,23 @@ export class UnauthorizedError extends Error {
   }
 }
 
-/** Convenience predicate so callers can `if (isUnauthorized(err))` and
- *  skip showing a toast — the AuthProvider's global handler will route
- *  the user to /auth on its own. */
 export function isUnauthorized(err: unknown): err is UnauthorizedError {
   return err instanceof UnauthorizedError;
 }
 
-// ── Token + 401 plumbing ─────────────────────────────────────────────
-// Module-level holders kept out of React state on purpose so that
-// even pre-mount fetches (rare, but possible during HMR) carry the
-// token the user already has in localStorage.
-
+// Module-level holders so pre-mount fetches carry the token from localStorage.
 let _authToken: string | null = null;
 let _onUnauthorized: (() => void) | null = null;
-// One-shot guard: avoids a thundering-herd of logout() calls when
-// several authed requests come back 401 in the same tick (common on
-// pages that fan out details + recommendations + plan in parallel).
-// Re-arms whenever a new token is installed.
+// One-shot guard so parallel 401s don't N×fire the logout handler.
 let _unauthorizedFired = false;
 
-/** Set/clear the bearer token attached to every authed request.
- *  Called by `AuthProvider` on mount, login, and logout. */
 export function setAuthToken(token: string | null): void {
   _authToken = token;
   _unauthorizedFired = false;
 }
 
-/** Register a handler that fires once per 401-burst so the
- *  AuthProvider can drop its in-memory state and route to /auth. */
 export function setOnUnauthorized(handler: (() => void) | null): void {
   _onUnauthorized = handler;
-  // Re-arm so a fresh provider instance (eg. after a hot reload or a
-  // new test) gets to react to the next 401 even if a previous one
-  // already fired this tick.
   _unauthorizedFired = false;
 }
 
@@ -82,7 +63,7 @@ async function readDetail(res: Response, fallback: string): Promise<string> {
         : JSON.stringify(data.detail);
     }
   } catch {
-    /* non-JSON body — fall through */
+    /* non-JSON body */
   }
   return fallback;
 }
@@ -107,8 +88,6 @@ export const api = {
       await fetch(`${BASE_URL}/health`),
     ),
 
-  // ── Auth ────────────────────────────────────────────────────────
-
   register: async (email: string, password: string): Promise<TokenResponse> =>
     handle<TokenResponse>(
       await fetch(`${BASE_URL}/auth/register`, {
@@ -127,8 +106,6 @@ export const api = {
       }),
     ),
 
-  // ── Analysis ────────────────────────────────────────────────────
-
   uploadAnalysis: async (file: File): Promise<AnalysisResponse> => {
     const form = new FormData();
     form.append("file", file);
@@ -141,16 +118,7 @@ export const api = {
     );
   },
 
-  /**
-   * Smart Camera 3-shot upload: posts `front` (required) plus
-   * optional `left` / `right` side photos. The backend validates
-   * each frame, persists all three, runs heuristic analysis on
-   * `front`, and stores the side paths for future multi-angle work.
-   *
-   * Kept distinct from `uploadAnalysis` so the legacy single-image
-   * payload (`file`) remains the obvious default for the manual
-   * uploader and any older clients.
-   */
+  /** Smart Camera 3-shot upload — `front` required, `left`/`right` optional. */
   uploadAnalysisMulti: async (input: {
     front: File;
     left?: File | null;

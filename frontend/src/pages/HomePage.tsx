@@ -3,21 +3,7 @@ import { useNavigate } from "react-router-dom";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 
-/**
- * Landing screen.
- *
- * Single-viewport layout (no scroll on iPhone 12/13/14 portrait):
- *   header → hero visual → headline → subhead → benefit chips → CTA.
- *
- * The hero visual is a CSS-only "skin scan" composition: a gradient
- * card with concentric scan rings, a subtle vertical face hint, and
- * a slow shimmer line that travels top-to-bottom. The animation
- * respects `prefers-reduced-motion`.
- *
- * The header's ≡ menu icon mirrors the one in ResultsPage and
- * navigates to the history list — that's the single, consistent
- * "see my past results" affordance across the app.
- */
+/** Landing screen — single-viewport on iPhone portrait. */
 export default function HomePage() {
   const navigate = useNavigate();
 
@@ -92,25 +78,7 @@ export default function HomePage() {
   );
 }
 
-/**
- * Hero visual — photographic face-mesh portrait + animated scan line.
- *
- * Composition (back to front):
- *   1. `/intro-face-mesh.png` (in `public/`) — a portrait photo with
- *      an AI face-mesh overlay baked in. This is the primary visual:
- *      it communicates "AI skin analysis" instantly without copy.
- *   2. A soft bottom-edge fade — blends the bottom of the photo into
- *      the cream page background so the hero doesn't read as a
- *      hard-edged card sitting on the layout.
- *   3. A slow scan-line that travels top → bottom over the photo,
- *      reinforcing the "currently scanning" feel. CSS keyframe,
- *      paused under `prefers-reduced-motion: reduce`.
- *
- * The image is loaded eagerly (default) because it IS the first
- * paint — lazy-loading would create a flash. ~860 kB PNG; an
- * acceptable cost for the landing screen and easily re-encodable
- * to ~200 kB WebP later if perf telemetry asks for it.
- */
+/** Hero — face-mesh portrait image + bottom fade + animated scan-line. */
 function IntroHero() {
   return (
     <div className="intro-hero" aria-hidden="true">

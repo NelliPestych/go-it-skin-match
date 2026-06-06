@@ -1,8 +1,4 @@
-"""Idempotent seed data for the product catalogue.
-
-Runs on application startup. If the catalogue already has products,
-seeding is skipped, so re-deploys are safe.
-"""
+"""Idempotent product-catalogue seed; skipped on startup if any product exists."""
 from __future__ import annotations
 
 import logging
@@ -29,14 +25,14 @@ SEED_PRODUCTS: List[ProductCreate] = [
         description="Gentle non-foaming cleanser with ceramides and hyaluronic acid.",
     ),
     ProductCreate(
-        brand="La Roche-Posay",
-        name="Effaclar Purifying Foaming Gel",
+        brand="DermaCalm",
+        name="Clear-Skin Foaming Gel Cleanser",
         category="cleanser",
         skin_types=["oily", "combination"],
         concerns=["oiliness", "pores"],
         ingredients=["zinc pidolate", "salicylic acid"],
         price=15.99,
-        affiliate_url="https://example.com/lrp-effaclar",
+        affiliate_url="https://example.com/dermacalm-clear-skin",
         description="Foaming cleanser for oily, blemish-prone skin.",
     ),
     ProductCreate(
@@ -95,14 +91,14 @@ SEED_PRODUCTS: List[ProductCreate] = [
         description="Lightweight gel moisturizer for oilier skin.",
     ),
     ProductCreate(
-        brand="La Roche-Posay",
-        name="Toleriane Sensitive",
+        brand="DermaCalm",
+        name="Comfort Daily Moisturizer",
         category="moisturizer",
         skin_types=["dry", "normal", "combination"],
         concerns=["redness", "sensitivity"],
         ingredients=["niacinamide", "prebiotic thermal water"],
         price=22.5,
-        affiliate_url="https://example.com/lrp-toleriane",
+        affiliate_url="https://example.com/dermacalm-comfort",
         description="Soothing daily moisturizer for sensitive skin.",
     ),
     ProductCreate(

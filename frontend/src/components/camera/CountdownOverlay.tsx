@@ -1,13 +1,6 @@
-/**
- * CountdownOverlay — large 3 / 2 / 1 digit shown in the centre of
- * the camera frame while `useSmartCaptureFlow.status === "counting"`.
- *
- * The hook derives `digit` from countdown progress; this component
- * is a thin renderer that re-mounts on each digit change via
- * `key={digit}` so the `sc-countdown-pop` keyframe replays per tick.
- */
+/** Large 3/2/1 digit; re-mounts on change via key so the keyframe replays. */
 interface Props {
-  /** 3 / 2 / 1 — or 0 to hide the badge entirely. */
+  /** 3/2/1 — or 0 to hide. */
   digit: number;
 }
 

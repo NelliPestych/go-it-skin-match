@@ -22,10 +22,6 @@ type RoutinePeriod = "morning" | "evening";
 const tabId = (t: ResultsTab) => `results-tab-${t}`;
 const panelId = (t: ResultsTab) => `results-panel-${t}`;
 
-/** Pastel colors per tab — picked from the quiz palette so the
- *  binder dividers feel continuous with the rest of the app. The
- *  active tab passes its color down to the panel via a CSS variable
- *  so the whole "file" (tab + content) looks like one sheet. */
 const PRODUCT_BG = ["var(--bg-results)", "var(--cream)", "var(--rose)", "var(--mint)", "var(--sky)", "var(--lavender)"];
 const PRODUCT_EMOJI: Record<string, string> = {
   cleanser: "🧴",
@@ -39,10 +35,7 @@ const PRODUCT_EMOJI: Record<string, string> = {
 const CONFIDENCE_HINT =
   "How confident the AI is in this analysis, based on your scan quality and quiz answers.";
 
-/** Substrings we look for inside each product's concerns / category /
- *  reasons when filtering Picks by a Targets tap. Generous on synonyms
- *  (e.g. "dehydration" matches via "hydrat") so we don't end up with
- *  empty filtered states when the catalog phrasing drifts. */
+/** Substrings for filtering Picks by Targets; generous on synonyms ("dehydration" → "hydrat"). */
 const TARGET_KEYWORDS: Record<FocusArea, string[]> = {
   "Oil control": ["oil", "shine", "sebum"],
   "Hydration support": ["hydrat", "moistur", "dry", "dehydrat"],
@@ -88,18 +81,10 @@ export default function ResultsPage() {
   const [activeTarget, setActiveTarget] = useState<FocusArea | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [metersIn, setMetersIn] = useState(false);
-  // Saved-toast gating: show only on the *very first* time the user
-  // lands on a given /results/:id.  Subsequent loads (reload, deep
-  // link, History tap) skip it.  Stored per-analysisId in localStorage
-  // so it survives across tabs and browser restarts.
+  // Saved-toast fires once per analysisId; persisted in localStorage.
   const [showSavedToast, setShowSavedToast] = useState(false);
 
-  // Drag-to-scroll wiring for the Picks carousel on mouse devices.
-  // Native touch keeps its own momentum scroll (we only intercept
-  // mouse / pen pointers); the `dragMoved` ref lets the card click
-  // handler bail out when the user was actually dragging rather
-  // than tapping (so the click-to-scroll behaviour doesn't fire on
-  // the end of a drag gesture).
+  // Drag-to-scroll for Picks carousel (mouse/pen only; touch uses native pan).
   const recoRowRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef({
     active: false,
@@ -153,8 +138,7 @@ export default function ResultsPage() {
         setPlan(d.plan ?? null);
         setCreatedAt(d.created_at ?? null);
       } catch (err) {
-        // 401 is handled globally by AuthProvider — the page is
-        // about to unmount under a /auth redirect, so skip the toast.
+        // 401 → AuthProvider redirects; skip the flash error.
         if (cancelled || isUnauthorized(err)) return;
         setError(err instanceof Error ? err.message : "Failed to load");
       }
@@ -164,28 +148,21 @@ export default function ResultsPage() {
     };
   }, [id]);
 
-  // Trigger meter / score-ring entrance animations one frame after the
-  // metrics paint so the fills sweep from 0 to their target widths.
+  // Sweep meters from 0 → target one frame after paint.
   useEffect(() => {
     if (!features) return;
     const t = requestAnimationFrame(() => setMetersIn(true));
     return () => cancelAnimationFrame(t);
   }, [features]);
 
-  // Toast appears ONLY when the user arrived directly from the
-  // /analyzing flow (AnalyzingPage navigates with `fromAnalyzing:
-  // true` in the router state).  History-tap and direct-link arrivals
-  // have no flag and skip the toast entirely.  After reading it once
-  // we strip the flag from the history entry via navigate-replace so
-  // a hard refresh on the same URL doesn't replay the toast.
+  // Toast only on first-visit-from-/analyzing; strip the flag so refresh doesn't replay.
   useEffect(() => {
     const state = location.state as { fromAnalyzing?: boolean } | null;
     if (state?.fromAnalyzing) {
       setShowSavedToast(true);
       navigate(location.pathname, { replace: true, state: null });
     }
-    // We deliberately depend only on the pathname — re-running on
-    // state-object identity would clear the flag before we read it.
+    // Depend on pathname only — state identity would clear the flag too early.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
@@ -253,8 +230,7 @@ export default function ResultsPage() {
         year: "numeric",
       })
     : null;
-  // Ring geometry: circle radius 34 → circumference ≈ 213.628. Pre-compute
-  // both so the entrance animation can interpolate from 0 to target.
+  // r=34 → circumference for the score-ring entrance animation.
   const RING_C = 2 * Math.PI * 34;
   const ringTarget = RING_C * (1 - score / 100);
 
@@ -459,19 +435,8 @@ export default function ResultsPage() {
                   type="button"
                   className="reco-card"
                   key={item.product.id}
-                  // Tapping a card scrolls it to the start of the
-                  // carousel.  We scroll the row element directly
-                  // (instead of calling card.scrollIntoView) because
-                  // scrollIntoView walks up scrollable ancestors and
-                  // can set the body's scrollLeft on narrow
-                  // viewports — that displaces the whole mobile
-                  // frame horizontally and exposes a strip of body
-                  // background on the right.  Direct scrollTo on the
-                  // row contains the scroll exclusively to the
-                  // carousel.  We suppress this when the click was
-                  // actually the tail end of a drag gesture (>5px
-                  // movement) so releasing the mouse after a drag
-                  // doesn't snap the row around.
+                  // Tap → scroll the row directly (not scrollIntoView, which leaks to body scroll).
+                  // Suppress when the click was the tail of a drag gesture (>5px).
                   onClick={(e) => {
                     if (dragRef.current.moved > 5) {
                       dragRef.current.moved = 0;
@@ -479,8 +444,7 @@ export default function ResultsPage() {
                     }
                     const row = recoRowRef.current;
                     if (!row) return;
-                    // 20px matches .reco-row's scroll-padding-left so
-                    // the card lands at the same inset as the heading.
+                    // 20px = .reco-row scroll-padding-left.
                     const target = e.currentTarget.offsetLeft - 20;
                     row.scrollTo({ left: target, behavior: "smooth" });
                   }}

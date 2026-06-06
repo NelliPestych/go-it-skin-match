@@ -1,24 +1,4 @@
-/**
- * QuizPage — single component that renders one question of the
- * 7-step config-driven skincare quiz.  Reads `skinQuizQuestions`
- * from `config/skinQuiz.ts` and dispatches per-question UI by
- * `question.type` ("single" or "multi").  All visible copy comes
- * from the config, so the page itself stays small.
- *
- * Routing contract (`App.tsx`):
- *   /quiz/:step  where step ∈ 1..7
- *   Out-of-range or non-numeric → redirect to /quiz/1.
- *
- * Guards (identical to the legacy QuizSkinTypePage):
- *   No imageFile in flow → bounce back to /capture so the user can
- *   start a Smart Camera or manual upload first.
- *
- * Why one page and not seven:
- *   The questions differ only in copy + options + answer slot.
- *   Encoding each as its own component would duplicate Back/Continue
- *   logic, progress-bar wiring, and the imageFile guard 7×.  A
- *   single config-driven page keeps the diff small and explicit.
- */
+/** Renders one of the 7 config-driven quiz questions at /quiz/:step. */
 import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -36,8 +16,7 @@ import type {
   SkinConcern,
 } from "../types/quiz";
 
-/** Parse the `:step` URL param to a 1-based index, with a safe
- *  fallback of 1 on missing / non-numeric / out-of-range input. */
+/** 1-based step index; safe fallback to 1 on bad input. */
 function parseStep(raw: string | undefined): number {
   if (!raw) return 1;
   const n = Number.parseInt(raw, 10);
@@ -45,14 +24,11 @@ function parseStep(raw: string | undefined): number {
   return n;
 }
 
-/** Has the user supplied a valid answer for this question?
- *  Drives the Continue button's `disabled` prop. */
 function isAnswered(question: QuizQuestion, answers: QuizAnswers): boolean {
   const value = answers[question.id];
   if (question.type === "single") {
     return typeof value === "string" && value.length > 0;
   }
-  // multi-select: a non-empty array satisfies "required"
   return Array.isArray(value) && value.length > 0;
 }
 
@@ -65,14 +41,12 @@ export default function QuizPage() {
   const flow = useFlow();
   const { imageFile, quizAnswers, setQuizAnswer, toggleQuizConcern } = flow;
 
-  // Guard: if the user opens /quiz/* directly without an image,
-  // send them back to capture.  Matches the legacy quiz pages.
+  // Direct /quiz/* without an image → /capture.
   useEffect(() => {
     if (!imageFile) navigate("/capture", { replace: true });
   }, [imageFile, navigate]);
 
-  // Normalise the URL: /quiz, /quiz/foo, /quiz/99 → /quiz/1.
-  // Doing it via navigate(replace) keeps Back behaviour sensible.
+  // Normalise /quiz/foo, /quiz/99 → /quiz/1 via replace.
   useEffect(() => {
     if (stepParam !== String(step)) {
       navigate(`/quiz/${step}`, { replace: true });
@@ -96,17 +70,12 @@ export default function QuizPage() {
   };
 
   const handleSingleSelect = (optionId: string) => {
-    // The cast is safe by construction: every option.id in the
-    // config corresponds to a legal value of the parent question's
-    // answer union (asserted by the config-validity test in Step 6).
+    // Cast is safe — every config option.id is a legal value of the question's union.
     setQuizAnswer(question.id, optionId as QuizAnswers[typeof question.id]);
   };
 
   const handleMultiToggle = (optionId: string) => {
-    // The only multi-select question in the config is "concerns".
-    // Guarding on `question.id === "concerns"` makes the cast safe
-    // and self-documenting; any future multi-select would need its
-    // own branch here (deliberately explicit, not magic).
+    // Concerns is the only multi-select; future ones need their own branch.
     if (question.id === "concerns") {
       toggleQuizConcern(optionId as SkinConcern);
     }
@@ -165,10 +134,6 @@ export default function QuizPage() {
     </div>
   );
 }
-
-// ── Presentational sub-components ───────────────────────────────────
-// Kept inside this file (small, single-use) so the new feature lands
-// as one cohesive unit.  Promoted to /components if reused later.
 
 function SingleSelectList({
   options,

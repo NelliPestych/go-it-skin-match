@@ -1,17 +1,4 @@
-/**
- * GuidanceText — large attention text positioned above the framing
- * oval, surfaced when alignment is failing.
- *
- * Hidden when the report says "aligned" — the green oval, the green
- * chips, and the countdown badge all communicate "ready" without
- * extra noise here.
- *
- * `report.message` becomes the headline; an optional `hint` line
- * adds the pose-specific elaboration (e.g. "Look at the screen").
- * The hint is suppressed when it would just restate the headline
- * verbatim — most commonly on side poses where both end up as
- * "Turn your face left/right".
- */
+/** Headline above the oval when not aligned; hint suppressed if it duplicates the headline. */
 import type { GuidanceReport } from "../../types/camera";
 
 interface Props {

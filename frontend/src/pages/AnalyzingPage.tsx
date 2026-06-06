@@ -20,32 +20,21 @@ const STEPS = [
 ];
 
 const STEP_INTERVAL_MS = 800;
-/** Hold the page open long enough for the last checklist item to flip
- *  to the green ✓ before navigating, regardless of backend speed. */
+/** Hold page open until last checklist item flips to ✓, regardless of backend speed. */
 const MIN_VISIBLE_MS = (STEPS.length + 1) * STEP_INTERVAL_MS;
 
 export default function AnalyzingPage() {
   const navigate = useNavigate();
-  // `quizAnswers` is the new canonical source (filled by `QuizPage`).
-  // Legacy `skinType` / `concerns` views are still available on the
-  // context but no longer read here — every signal AnalyzingPage
-  // needs comes straight from `quizAnswers`, projected through the
-  // pure mappers right before the network call below.
   const { imageFile, additionalImages, quizAnswers } = useFlow();
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Guard: missing prerequisites means the user navigated here
-    // directly. Send them back to the right step.
+    // Direct navigation here without prerequisites — bounce to the right step.
     if (!imageFile) {
       navigate("/capture", { replace: true });
       return;
     }
-    // The user must have either picked an explicit skin type OR
-    // explicitly selected "not sure" — both populate `quizAnswers.skin_type`.
-    // We don't require `skinType` (legacy, non-null) here because the
-    // backend treats a missing self-reported skin type as "AI decides".
     if (!quizAnswers.skin_type) {
       navigate("/quiz/1", { replace: true });
       return;
@@ -65,11 +54,7 @@ export default function AnalyzingPage() {
 
     (async () => {
       try {
-        // Dispatch on whether the user has any side photos: Smart
-        // Camera → multi-image POST so all 3 frames are persisted;
-        // manual uploader → legacy single-image POST.  The backend
-        // accepts both and runs heuristic analysis on `front` only
-        // either way, so the rest of this flow is identical.
+        // Smart Camera (3-shot) vs manual (1-shot). Backend accepts both.
         const hasExtras = !!(additionalImages.left || additionalImages.right);
         const upload = hasExtras
           ? await api.uploadAnalysisMulti({
@@ -79,15 +64,6 @@ export default function AnalyzingPage() {
             })
           : await api.uploadAnalysis(imageFile);
 
-        // Assemble the wire payload.
-        // - Legacy fields (`self_reported_skin_type`, `concerns`,
-        //   `sensitivity`) are derived from the new `quizAnswers`
-        //   via the pure mappers in `services/quizMapping.ts` so
-        //   the existing backend RecommendationEngine keeps working
-        //   unchanged.
-        // - The new optional fields (Q4..Q7 + raw_*) are sent
-        //   verbatim. Backend will adopt them in Step 4; until then
-        //   Pydantic silently drops them — see QuizPayload comment.
         const payload: QuizPayload = {
           analysis_id: upload.analysis_id,
           self_reported_skin_type: mapSkinTypeToLegacy(quizAnswers.skin_type),
@@ -101,23 +77,20 @@ export default function AnalyzingPage() {
           raw_sensitivity: quizAnswers.sensitivity,
         };
         await api.submitQuiz(payload);
-        // Wait for the checklist animation to finish before redirecting.
+        // Let the checklist animation finish before redirecting.
         const elapsed = Date.now() - mountAt;
         const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
         if (remaining > 0) {
           await new Promise((r) => setTimeout(r, remaining));
         }
         if (!cancelled)
-          // `fromAnalyzing` flag drives the one-time "Saved to your
-          // history" toast on ResultsPage.
+          // `fromAnalyzing` drives the one-time "Saved" toast on ResultsPage.
           navigate(`/results/${upload.analysis_id}`, {
             replace: true,
             state: { fromAnalyzing: true },
           });
       } catch (err) {
-        // 401 → AuthProvider clears the session and RequireAuth
-        // bounces this page to /auth.  Don't flash "Unauthorized" on
-        // the way out.
+        // 401 → AuthProvider redirects; skip the flash error.
         if (cancelled || isUnauthorized(err)) return;
         setError(err instanceof Error ? err.message : "Analysis failed");
       }

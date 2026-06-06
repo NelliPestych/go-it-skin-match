@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Fail fast on insecure config — checked BEFORE init_db so a
-    # misconfigured production deploy never gets the chance to mint
-    # forge-prone tokens.  Non-prod envs are unaffected.
+    # Fail fast on insecure config before any token can be minted.
     assert_secret_safe_for_env(settings.app_env, settings.secret_key)
     try:
         init_db()

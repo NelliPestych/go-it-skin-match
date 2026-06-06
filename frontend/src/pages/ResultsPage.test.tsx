@@ -1,19 +1,4 @@
-/**
- * ResultsPage integration tests.
- *
- * Three scenarios cover the production matrix:
- *   1. Modern AI provider (mock_haut) → renders extended metrics,
- *      "AI-powered analysis" label, focus areas and insights.
- *   2. Legacy sentinel (provider === "legacy") → renders the basic
- *      profile and "Basic analysis" label, no extended metric rows.
- *   3. Missing `ai_metrics` entirely (old scan persisted before the
- *      provider abstraction) → same fallback as #2, no crash.
- *
- * We stub the `api.details` function rather than `fetch`, so the
- * tests stay close to the actual data contract without coupling to
- * internal URL strings.  This also means a backend rename of the
- * details endpoint would only fail the api-layer test, not these.
- */
+/** ResultsPage — modern provider, legacy sentinel, missing-ai_metrics scenarios. */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

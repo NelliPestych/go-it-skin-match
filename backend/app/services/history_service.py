@@ -1,9 +1,4 @@
-"""History aggregation service.
-
-Builds compact history cards and full details snapshots by joining
-SkinScan, QuizAnswer, Recommendation and RoutinePlan via the existing
-repositories. Lives as its own service so endpoints stay thin.
-"""
+"""History list + details snapshots joining SkinScan, Quiz, Recommendation, Plan."""
 from __future__ import annotations
 
 from typing import List, Optional

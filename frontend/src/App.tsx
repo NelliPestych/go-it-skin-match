@@ -2,16 +2,6 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
-// `pages/CapturePage.tsx` is intentionally kept on disk as a fallback
-// component (per plan #3) but is no longer mounted: /capture now
-// serves SmartCameraIntroPage, which inlines the manual-upload picker.
-//
-// `pages/QuizSkinTypePage.tsx` and `pages/QuizConcernsPage.tsx` are
-// the legacy 2-question quiz pages.  They are kept on disk for safety
-// (per the Step 2 constraint "do not delete old quiz pages yet") but
-// are no longer routed: the config-driven `QuizPage` mounted on
-// `/quiz/:step` supersedes them, and `/quiz/skin-type` /
-// `/quiz/concerns` are mapped to redirects so deep-links keep working.
 import AuthPage from "./pages/AuthPage";
 import SmartCameraIntroPage from "./pages/SmartCameraIntroPage";
 import SmartCameraPage from "./pages/SmartCameraPage";
@@ -23,7 +13,7 @@ import RequireAuth from "./components/RequireAuth";
 import { AuthProvider } from "./state/auth";
 import { FlowProvider } from "./state/flow";
 
-/** Reset window scroll on every route change (Router v6 doesn't). */
+/** Router v6 doesn't reset scroll on route change. */
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -43,11 +33,8 @@ export default function App() {
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/capture" element={<SmartCameraIntroPage />} />
             <Route path="/smart-camera" element={<SmartCameraPage />} />
-            {/* New config-driven 7-step quiz. */}
             <Route path="/quiz" element={<Navigate to="/quiz/1" replace />} />
             <Route path="/quiz/:step" element={<QuizPage />} />
-            {/* Legacy deep-links from earlier versions of the app fall
-                through to the new quiz at the appropriate step. */}
             <Route
               path="/quiz/skin-type"
               element={<Navigate to="/quiz/1" replace />}
@@ -56,9 +43,6 @@ export default function App() {
               path="/quiz/concerns"
               element={<Navigate to="/quiz/2" replace />}
             />
-            {/* Auth-gated routes — AnalyzingPage runs the actual scan
-                upload, so it (and the result + history views) must
-                resolve to a real user. */}
             <Route
               path="/analyzing"
               element={

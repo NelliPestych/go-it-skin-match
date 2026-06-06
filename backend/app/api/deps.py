@@ -29,22 +29,7 @@ def get_current_user(
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
 ) -> User:
-    """Resolve the current user.
-
-    Behaviour by `APP_ENV`:
-
-    * **production** — a valid Bearer token is required.  Missing or
-      malformed Authorization headers, invalid signatures, and
-      expired tokens all return 401.  No demo fallback.
-    * **anything else (development / test / staging)** — same Bearer
-      check first; if no header is supplied at all, we transparently
-      use the shared demo account so the existing test fixtures and
-      pre-auth dev flow keep working without rewriting.
-
-    A *malformed* token in non-prod still 401s — the fallback only
-    fires when the header is absent.  That keeps explicit bad-token
-    test cases honest.
-    """
+    """Resolve user from Bearer token; non-prod falls back to demo when header absent."""
     repo = UserRepository(db)
     bearer = (authorization or "").strip()
 
@@ -58,9 +43,7 @@ def get_current_user(
             )
         user = repo.get_by_email(email)
         if user is None:
-            # Token's `sub` doesn't map to any account — treat as
-            # invalid rather than auto-creating, so a leaked-but-
-            # revoked token can't be reused via reissue.
+            # Token sub doesn't map to an account — reject so a revoked-then-reissued token can't be reused.
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired auth token",
@@ -74,7 +57,4 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Non-production: keep the demo flow frictionless.  Existing
-    # records persisted before auth landed remain attached to this
-    # service account; see README "Authentication".
     return repo.get_or_create(DEMO_USER_EMAIL)

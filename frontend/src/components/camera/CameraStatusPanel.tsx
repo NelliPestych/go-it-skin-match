@@ -1,13 +1,5 @@
 /**
- * CameraStatusPanel — three status chips at the top of the camera
- * stage, styled after La Roche-Posay SpotScan.
- *
- * Each chip turns green when its own gate is satisfied and red while
- * the user still has work to do. The third chip's label changes per
- * pose so the user always sees the pose-specific instruction in the
- * persistent UI, not just in the centred banner.
- *
- * A close button on the right exits the camera flow.
+ * Three status chips above the camera stage; per-gate green/red + per-pose label.
  */
 import type { CaptureStep, GateChecks } from "../../types/camera";
 

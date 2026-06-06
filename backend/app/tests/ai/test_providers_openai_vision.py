@@ -1,28 +1,4 @@
-"""Tests for the OpenAI Vision provider.
-
-The live OpenAI API is never called in the normal suite — every test
-injects a fake `client` into the provider so the SDK round-trip is
-mocked end-to-end.  The single live integration test is `skip`-guarded
-on `OPENAI_API_KEY` so CI / contributor laptops without credentials
-are unaffected.
-
-What's pinned here:
-
-* construction-time config errors (missing key, looping fallback),
-* the request shape (sync `chat.completions.create` call with the
-  system prompt, JSON response format, image_url part carrying the
-  base64-encoded front bytes),
-* the prompt's safety wording — no medical / disease language,
-* normalization across categorical + numeric metric shapes,
-* tolerance to missing optional metrics (no crash, conservative
-  defaults),
-* error classification (auth, request, server, timeout, rate limit),
-* the fallback contract — request-time errors fall back; config
-  errors propagate; the result is annotated with audit markers,
-* `raw_summary` discipline — no base64, no image bytes, no full
-  vendor response leak,
-* factory routing.
-"""
+"""OpenAI Vision provider tests — all mocked; the live smoke is skip-guarded."""
 from __future__ import annotations
 
 import json
@@ -127,11 +103,7 @@ def _provider(
     model: str = "gpt-4o-mini",
     timeout: float = 5.0,
 ) -> tuple[OpenAIVisionProvider, _FakeChatCompletions]:
-    """Build a provider with an injected fake client.
-
-    Returns the provider plus the underlying `_FakeChatCompletions`
-    instance so the test can read back its `.calls` log.
-    """
+    """Build provider with injected fake client; returns (provider, completions)."""
     completions = completions or _FakeChatCompletions(returns=_success_completion())
     client = _FakeClient(completions)
     p = OpenAIVisionProvider(
@@ -221,8 +193,7 @@ def test_safe_summary_trims_and_caps():
 
 
 def test_bucket_score_rejects_nan_and_inf():
-    """NaN / inf are floats but must never bucket — they'd poison
-    the JSON column and downstream Pydantic validators alike."""
+    """NaN / inf must not bucket — they poison the JSON column."""
     import math
 
     assert _bucket_score(math.nan) is None
@@ -242,13 +213,7 @@ def test_safe_confidence_rejects_nan_and_inf():
 
 
 def test_system_prompt_forbids_medical_diagnosis():
-    """The provider must never ask the model for a medical opinion.
-
-    The exact wording can drift over time, but the safety markers
-    pinned below must remain — anyone editing the prompt sees the
-    test fail and is forced to confirm the safety guidance stays
-    explicit.
-    """
+    """Pin safety markers — wording can drift but these must remain."""
     prompt = _SYSTEM_PROMPT.lower()
     assert "do not provide medical" in prompt
     assert "dermatological diagnosis" in prompt
@@ -259,10 +224,7 @@ def test_system_prompt_forbids_medical_diagnosis():
 
 
 def test_system_prompt_hardening_guidance_present():
-    """The hardening pass adds three production-grade nudges to the
-    model: prefer 'medium' when unsure, don't exaggerate, don't infer
-    hidden conditions.  These are the levers that keep the rec engine
-    from over-correcting on noisy or compressed images."""
+    """Hardening nudges: prefer 'medium', don't exaggerate, don't infer hidden conditions."""
     prompt = _SYSTEM_PROMPT.lower()
     assert "prefer 'medium'" in prompt
     assert "do not exaggerate" in prompt
@@ -308,7 +270,7 @@ def test_analyze_calls_sdk_with_correct_shape():
 
     assert kwargs["model"] == "gpt-4o-mini"
     assert kwargs["response_format"] == {"type": "json_object"}
-    # Temperature kept low so the structured JSON stays stable.
+    # Low temp keeps structured JSON stable.
     assert kwargs["temperature"] == 0.2
 
     messages = kwargs["messages"]
@@ -316,18 +278,14 @@ def test_analyze_calls_sdk_with_correct_shape():
     assert messages[0]["content"] == _SYSTEM_PROMPT
     user = messages[1]
     assert user["role"] == "user"
-    # Content is a list of parts: text + image_url.
     parts = user["content"]
     types = [p["type"] for p in parts]
     assert "text" in types and "image_url" in types
     image_part = next(p for p in parts if p["type"] == "image_url")
     image_url = image_part["image_url"]["url"]
     assert image_url.startswith("data:image/jpeg;base64,")
-    # Round-trip: the front bytes must land in the URL as base64.
     assert _b64(_DUMMY_FRONT) in image_url
-    # Cost lever: `detail=low` keeps prompt tokens flat (~85) regardless
-    # of source image size.  Pinned so anyone removing it gets a
-    # visible warning in CI.
+    # detail=low pins prompt tokens flat (~85); removing this triggers test failure.
     assert image_part["image_url"].get("detail") == "low"
 
 
@@ -354,9 +312,7 @@ def test_analyze_normalizes_a_representative_response():
 
 
 def test_recommendation_signals_fire_on_concerning_metrics():
-    """Combined high-oil + high-texture + dehydration trigger several
-    signals at once.  The signals are the rec engine's tap into the
-    OpenAI result without it needing to know the metric names."""
+    """High-oil + high-texture + dehydration fire multiple signals at once."""
     payload = _success_payload(
         hydration="low",
         oiliness="high",
@@ -378,13 +334,11 @@ def test_recommendation_signals_fire_on_concerning_metrics():
 
 
 def test_partial_response_uses_schema_defaults():
-    """A model that only sends a subset of metrics must not crash —
-    missing fields fall back to the conservative schema defaults."""
+    """Subset response must not crash — missing fields fall back to defaults."""
     minimal = {
         "skin_type": "normal",
         "hydration": "medium",
         "confidence_score": 0.7,
-        # everything else omitted
     }
     p, _ = _provider(
         completions=_FakeChatCompletions(returns=_FakeCompletion(json.dumps(minimal)))
@@ -393,19 +347,18 @@ def test_partial_response_uses_schema_defaults():
 
     assert result.skin_type == SkinType.NORMAL
     assert result.hydration_level == Level.MEDIUM
-    # Conservative defaults
     assert result.oiliness == Level.MEDIUM
     assert result.redness_level == Level.LOW
     assert result.acne == Level.LOW
     assert result.fine_lines == Level.LOW
     assert result.texture == Level.MEDIUM
     assert result.pigmentation_level == Level.LOW
-    # pores_visibility absent → default Level.MEDIUM → 0.5
+    # default Level.MEDIUM → 0.5
     assert result.pores_score == 0.5
 
 
 def test_unknown_skin_type_falls_back_to_normal():
-    payload = _success_payload(skin_type="sensitive")  # not in the enum
+    payload = _success_payload(skin_type="sensitive")
     p, _ = _provider(
         completions=_FakeChatCompletions(returns=_FakeCompletion(json.dumps(payload)))
     )
@@ -414,9 +367,7 @@ def test_unknown_skin_type_falls_back_to_normal():
 
 
 def test_numeric_confidence_path_works():
-    """The prompt asks for a float, but the model occasionally emits
-    a 0..100 integer.  The parser should rescale rather than clamp
-    to 1.0."""
+    """Model sometimes emits 0..100 int instead of float — parser rescales."""
     payload = _success_payload(confidence_score=82)
     p, _ = _provider(
         completions=_FakeChatCompletions(returns=_FakeCompletion(json.dumps(payload)))
@@ -484,7 +435,7 @@ def test_raw_summary_caps_summary_string_length():
 
 
 def _import_openai_errors():
-    """Helper to grab the SDK's error classes for raising in mocks."""
+    """SDK error classes for raising in mocks."""
     from openai import (
         APIConnectionError,
         APIError,
@@ -505,7 +456,7 @@ def _import_openai_errors():
 
 
 def _mock_request() -> Any:
-    """Build the minimal `httpx.Request` openai SDK errors expect."""
+    """Minimal httpx.Request the SDK errors expect."""
     import httpx
 
     return httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
@@ -528,9 +479,7 @@ def test_auth_error_classified():
 
 
 def test_rate_limit_classified_as_server_error():
-    """Rate limits are transient and should follow the same fallback
-    path as a 5xx — the rec engine doesn't care which sub-flavour of
-    "try again later" the vendor returned."""
+    """429 follows the 5xx fallback path."""
     errors = _import_openai_errors()
     exc = errors["RateLimitError"](
         message="429", response=_mock_response(429), body=None
@@ -609,9 +558,8 @@ def test_fallback_runs_on_server_error():
     )
 
     result = p.analyze(_DUMMY_FRONT)
-    # Fallback's own provider name surfaces on the result …
     assert result.provider == "mock_haut"
-    # … plus the audit markers stamped by `_run_fallback`.
+    # Audit markers stamped by _run_fallback.
     summary = result.raw_summary or {}
     assert summary.get("fallback_used") is True
     assert summary.get("original_provider") == "openai_vision"
@@ -632,8 +580,7 @@ def test_fallback_runs_on_request_error():
 
 
 def test_config_error_never_triggers_fallback():
-    """The constructor refuses missing key — proves there's no quiet
-    fallback path on bad config."""
+    """Missing key raises at construction; no quiet fallback path."""
     with pytest.raises(OpenAIVisionConfigError):
         OpenAIVisionProvider(
             api_key=None,
@@ -645,15 +592,13 @@ def test_config_error_never_triggers_fallback():
 def test_no_fallback_propagates_error():
     errors = _import_openai_errors()
     exc = errors["APIError"](message="boom", request=_mock_request(), body=None)
-    p, _ = _provider(completions=_FakeChatCompletions(raises=exc))  # no fallback
+    p, _ = _provider(completions=_FakeChatCompletions(raises=exc))
     with pytest.raises(OpenAIVisionServerError):
         p.analyze(_DUMMY_FRONT)
 
 
 def test_fallback_clips_long_error_messages():
-    """If the SDK's error chain carries a very long server-side body,
-    `raw_summary.original_provider_error` is capped so the JSON column
-    can't bloat per scan."""
+    """Long SDK error bodies are capped so features_json can't bloat per scan."""
     errors = _import_openai_errors()
     huge_body = "x" * 5000
     exc = errors["APIError"](
@@ -665,13 +610,12 @@ def test_fallback_clips_long_error_messages():
     )
     result = p.analyze(_DUMMY_FRONT)
     err = (result.raw_summary or {}).get("original_provider_error", "")
-    assert err  # message present …
-    assert len(err) <= 200  # … and capped.
+    assert err
+    assert len(err) <= 200
 
 
 def test_fallback_summary_contains_no_stack_trace():
-    """Stack traces in `raw_summary` would balloon the JSON column AND
-    leak path / filename detail to anything reading `features_json`."""
+    """Stack traces in raw_summary would bloat + leak path/filename detail."""
     errors = _import_openai_errors()
     exc = errors["APIError"](
         message="boom", request=_mock_request(), body=None
@@ -682,15 +626,12 @@ def test_fallback_summary_contains_no_stack_trace():
     )
     result = p.analyze(_DUMMY_FRONT)
     summary_text = json.dumps(result.raw_summary or {})
-    # Common stack-trace markers must never appear.
     for marker in ("Traceback", "File \"/", ".py\", line ", "site-packages"):
         assert marker not in summary_text
 
 
 def test_unknown_keys_in_raw_summary_are_dropped():
-    """Belt-and-braces: the runtime allow-list in `_normalize_response`
-    must drop any future helper that tries to smuggle a key outside
-    the documented set into `features_json`."""
+    """Runtime allow-list drops any key outside the documented set."""
     p, _ = _provider()
     result = p.analyze(_DUMMY_FRONT)
     summary = result.raw_summary or {}
@@ -709,13 +650,9 @@ def test_unknown_keys_in_raw_summary_are_dropped():
 
 
 def test_side_images_are_ignored_but_not_an_error():
-    """The current OpenAI provider sends front only.  Side bytes are
-    accepted and dropped to preserve interface compatibility for a
-    future multi-angle version."""
+    """Front only sent to model; sides accepted + dropped for forward-compat."""
     p, completions = _provider()
     p.analyze(_DUMMY_FRONT, left=b"left-bytes", right=b"right-bytes")
-    # Only one part with type=image_url should appear in the user
-    # message — the side bytes never travel to the model.
     kwargs = completions.calls[0]
     user_parts = kwargs["messages"][1]["content"]
     image_parts = [p for p in user_parts if p["type"] == "image_url"]
@@ -758,8 +695,7 @@ def test_factory_openai_missing_key_raises(monkeypatch):
 
 
 def test_factory_rejects_openai_vision_as_fallback(monkeypatch):
-    """A `SKIN_ANALYSIS_FALLBACK_PROVIDER=openai_vision` config would
-    loop on transient errors — the factory rejects it at startup."""
+    """openai_vision as fallback would loop on transient errors; factory rejects at startup."""
     factory_fn.cache_clear()
     monkeypatch.setattr(
         "app.core.config.settings.skin_analysis_provider", "openai_vision"
@@ -811,15 +747,7 @@ def test_factory_resolves_mock_haut_fallback_for_openai(monkeypatch):
     reason="OPENAI_API_KEY not set; live integration test skipped",
 )
 def test_live_openai_vision_smoke():
-    """Single round-trip against the real OpenAI Vision endpoint.
-
-    Skipped unless the contributor explicitly opts in by exporting
-    `OPENAI_API_KEY`.  The assertions are intentionally weak — we
-    only want to know that the wire shape lines up and the response
-    normalizes cleanly, not pin specific values that depend on the
-    sample image.  Image is generated in-memory with Pillow so no
-    fixture file needs to live in the repo.
-    """
+    """Live round-trip; opt-in via OPENAI_API_KEY; weak asserts on wire shape only."""
     import io
 
     try:
@@ -832,7 +760,6 @@ def test_live_openai_vision_smoke():
         model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
         timeout_seconds=float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "30")),
     )
-    # A real, decoder-friendly JPEG so OpenAI's image parser accepts it.
     img = Image.new("RGB", (96, 96), (210, 175, 150))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=70)
@@ -840,10 +767,6 @@ def test_live_openai_vision_smoke():
 
     assert result.provider == "openai_vision"
     assert 0.0 <= result.confidence_score <= 1.0
-    # The model is asked for one of the four canonical skin types; any
-    # other value would mean our parser silently fell back to
-    # `Level.MEDIUM`/`SkinType.NORMAL` instead of catching drift.
     assert result.skin_type.value in {"dry", "oily", "combination", "normal"}
-    # raw_summary stays compact — no image bytes leak through.
     summary_text = (result.raw_summary or {}).get("summary", "")
     assert "base64" not in summary_text.lower()

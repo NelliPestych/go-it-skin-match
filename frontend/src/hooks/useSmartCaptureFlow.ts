@@ -1,37 +1,6 @@
 /**
- * Smart Capture multi-pose state machine.
- *
- *   scanning      ↺ at least one gate is failing; nothing pending.
- *   stabilizing   ⏱ gates green, 800 ms warm-up before countdown.
- *   counting      ⏳ 1 500 ms 3 → 2 → 1 countdown.
- *   flash         ✦ 120 ms white flash before grabbing the frame.
- *   done          📸 captured File written, pose advanced or session
- *                    complete.
- *
- * Hold timing per the plan adjustment: 800 ms warm-up + 1 500 ms
- * countdown ≈ 2.3 s perceived hold (vs. 3 s straight). The countdown
- * digit derives from `countdownProgress` (0..1) so the UI can render
- * a single big "3 → 2 → 1" badge without extra timers.
- *
- * Multi-pose:
- *   front → left → right → done.
- * After each successful capture the hook stores the File, advances
- * the pose, resets progress, and re-arms. After the third pose it
- * stops without re-arming so a still-passing report can never
- * double-fire.
- *
- * The implementation uses two effects for clean state transitions:
- *
- *   Effect A (timer)  — driven by [enabled, armed, passes]
- *     Runs the warmup → countdown sequence inside a single RAF
- *     loop. On countdown completion it sets armed = false and
- *     status = "flash"; that's it — Effect B takes over.
- *
- *   Effect B (capture) — driven by [status === "flash"]
- *     Schedules a FLASH_MS setTimeout, grabs the frame from the
- *     <video>, advances the session. The split makes the cleanup
- *     story trivial: phase A's cleanup never affects phase B's
- *     pending capture, so we never end up disarmed-and-no-capture.
+ * Smart Capture state machine: scanning → stabilizing → counting → flash → done.
+ * Multi-pose: front → left → right. Two effects (timer / capture) keep cleanup clean.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -103,9 +72,7 @@ export function useSmartCaptureFlow(
   const [countdownProgress, setCountdownProgress] = useState(0);
   const [armed, setArmed] = useState(true);
 
-  // Latest video / pose refs so the deferred capture grabs the
-  // current frame and writes to the right slot regardless of when
-  // the parent re-renders during the timer.
+  // Refs so the deferred capture writes to the current slot across re-renders.
   const videoRef = useRef<HTMLVideoElement | null>(videoEl);
   videoRef.current = videoEl;
   const poseRef = useRef(pose);
@@ -120,12 +87,11 @@ export function useSmartCaptureFlow(
     setArmed(true);
   }, []);
 
-  // ── Effect A: warmup → countdown timer ─────────────────────────
+  // Effect A: warmup → countdown timer.
   useEffect(() => {
     if (!enabled || !armed) return;
     if (!passes) {
-      // Conditions broke: drop back to scanning, but never overwrite
-      // committed states (flash / done).
+      // Drop to scanning but never overwrite committed states (flash/done).
       setStatus((prev) => (prev === "flash" || prev === "done" ? prev : "scanning"));
       setWarmupProgress(0);
       setCountdownProgress(0);
@@ -150,7 +116,6 @@ export function useSmartCaptureFlow(
           raf = requestAnimationFrame(tick);
           return;
         }
-        // Warmup done — transition to countdown.
         phase = "countdown";
         countdownStart = now;
         setStatus("counting");
@@ -159,7 +124,6 @@ export function useSmartCaptureFlow(
         return;
       }
 
-      // phase === "countdown"
       const p = Math.min(1, (now - countdownStart) / COUNTDOWN_MS);
       setCountdownProgress(p);
       if (p < 1) {
@@ -167,8 +131,7 @@ export function useSmartCaptureFlow(
         return;
       }
 
-      // Countdown done — disarm and hand off to the capture effect.
-      // We DON'T do the grab here on purpose; see the file header.
+      // Disarm + hand off to capture effect; grab happens there.
       setArmed(false);
       setStatus("flash");
     };
@@ -180,7 +143,7 @@ export function useSmartCaptureFlow(
     };
   }, [enabled, armed, passes]);
 
-  // ── Effect B: flash → capture → advance ────────────────────────
+  // Effect B: flash → capture → advance.
   useEffect(() => {
     if (status !== "flash") return;
     let cancelled = false;
@@ -194,8 +157,7 @@ export function useSmartCaptureFlow(
           const idx = POSES.indexOf(currentPose);
           const isLast = idx >= POSES.length - 1;
           if (isLast) {
-            // Session complete — leave armed=false so the timer
-            // effect cannot fire again even if `passes` stays true.
+            // Leave armed=false so the timer can't refire if passes stays true.
             setStatus("done");
           } else {
             setPose(POSES[idx + 1]);
@@ -205,8 +167,7 @@ export function useSmartCaptureFlow(
             setArmed(true);
           }
         } else {
-          // Couldn't decode the frame — fall back to scanning and
-          // let the user retry naturally.
+          // Couldn't decode the frame — fall back to scanning.
           setStatus("scanning");
           setWarmupProgress(0);
           setCountdownProgress(0);
@@ -222,8 +183,7 @@ export function useSmartCaptureFlow(
 
   const complete = !!(images.front && images.left && images.right);
   const stepIndex = POSES.indexOf(pose) + 1;
-  // 3, 2, 1 over the countdown window — clamped at 1 so the very
-  // last frame still reads "1" instead of "0".
+  // Clamp at 1 so the last frame reads "1" not "0".
   const countdownDigit =
     status === "counting"
       ? Math.max(1, Math.ceil((1 - countdownProgress) * 3))

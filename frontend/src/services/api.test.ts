@@ -1,12 +1,4 @@
-/**
- * Smoke coverage for the multi-image upload client.  We aren't
- * exercising real network — we stub `fetch` and assert the
- * outgoing FormData has the exact fields the backend expects
- * (`front` required, `left` / `right` omitted when absent).  This
- * is the most boring contract bug we could ship: a missing key
- * would make every Smart Camera upload silently fall through to
- * the 400 path.
- */
+/** FormData contract for multi-image upload + 401 plumbing. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -128,16 +120,12 @@ describe("401 handling — one-shot global handler + isUnauthorized helper", () 
   });
 
   it("fires the global handler exactly once across a burst of parallel 401s", async () => {
-    // Three authed reads in flight at the same time — ResultsPage
-    // really does fan out like this (details + recommendations + plan).
-    // Without the one-shot guard each one would trigger logout().
     const results = await Promise.allSettled([
       api.history(),
       api.details(1),
       api.plan(1),
     ]);
     expect(results.every((r) => r.status === "rejected")).toBe(true);
-    // Same handler, fired ONCE.
     expect(onUnauth).toHaveBeenCalledTimes(1);
   });
 
@@ -145,7 +133,6 @@ describe("401 handling — one-shot global handler + isUnauthorized helper", () 
     await api.history().catch(() => undefined);
     expect(onUnauth).toHaveBeenCalledTimes(1);
 
-    // User logs back in → new token → next 401 should re-fire.
     setAuthToken("a.new.token");
     await api.history().catch(() => undefined);
     expect(onUnauth).toHaveBeenCalledTimes(2);
@@ -160,7 +147,6 @@ describe("401 handling — one-shot global handler + isUnauthorized helper", () 
     }
     expect(caught).toBeInstanceOf(UnauthorizedError);
     expect(isUnauthorized(caught)).toBe(true);
-    // Sanity: a plain error must NOT pass the predicate.
     expect(isUnauthorized(new Error("not auth"))).toBe(false);
     expect(isUnauthorized(null)).toBe(false);
   });

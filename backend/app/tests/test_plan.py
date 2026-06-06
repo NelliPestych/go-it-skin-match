@@ -18,8 +18,7 @@ from app.services.plan_service import PlanService
 
 
 def _neutral_features() -> Dict[str, Any]:
-    """AI features that don't activate any feature-driven plan tip,
-    so every assertion below is attributable to a quiz signal only."""
+    """Features that don't activate any feature-driven tip — isolates quiz signal."""
     return {
         "skin_type": "normal",
         "redness_level": "low",
@@ -30,15 +29,9 @@ def _neutral_features() -> Dict[str, Any]:
 
 
 def _generate(db_session, quiz: Dict[str, Any] | None):
-    """Helper — runs the full PlanService against the seeded catalogue,
-    sidesteps DB persistence quirks by simply reading the returned
-    BeautyPlan model."""
+    """Run PlanService against seeded catalogue; SkinScan FK isn't enforced in test DB."""
     products = ProductRepository(db_session).list()
     service = PlanService(db_session)
-    # We need a real (user_id, analysis_id) pair only because the
-    # service upserts into the plan repo. Using the conftest seed
-    # context the SQLite tables exist, so any positive ints work
-    # — the SkinScan FK is not enforced in the in-memory test DB.
     return service.generate(
         user_id=1,
         analysis_id=1,
@@ -56,8 +49,7 @@ def _categories(steps) -> list[str]:
 
 
 def test_legacy_no_quiz_returns_full_5_plus_4_routine(db_session):
-    """Pre-Step-5 callers passing no `quiz` argument get exactly the
-    advanced 5-morning / 4-evening routine they got before."""
+    """No quiz → unchanged 5+4 advanced routine (pre-Step-5 contract)."""
     plan = _generate(db_session, quiz=None)
 
     assert _categories(plan.daily.morning) == [
@@ -73,7 +65,6 @@ def test_legacy_no_quiz_returns_full_5_plus_4_routine(db_session):
         "serum",
         "moisturizer",
     ]
-    # No Step-5 quiz-driven tips appear in the baseline output.
     weekly_tips = [t.tip for t in plan.weekly_tips]
     for tip in weekly_tips:
         assert "every morning" not in tip.lower(), (
@@ -85,26 +76,21 @@ def test_legacy_no_quiz_returns_full_5_plus_4_routine(db_session):
 
 
 def test_routine_level_no_collapses_to_basic_routine(db_session):
-    """Beginners (`routine_level == "no"`) get the foundational
-    cleanser → moisturizer → SPF / cleanser → moisturizer pair."""
+    """routine_level=no → cleanser → moisturizer → SPF + cleanser → moisturizer."""
     plan = _generate(db_session, quiz={"routine_level": "no"})
     assert _categories(plan.daily.morning) == ["cleanser", "moisturizer", "sunscreen"]
     assert _categories(plan.daily.evening) == ["cleanser", "moisturizer"]
 
 
 def test_routine_level_regularly_keeps_advanced_routine(db_session):
-    """`routine_level = "regularly"` resolves to the full default. The
-    branch is the no-op path in `_select_sequences`, and this test
-    pins that contract so an accidental special-case never silently
-    downgrades the experienced-user plan."""
+    """regularly → unchanged advanced routine (no-op branch in _select_sequences)."""
     plan = _generate(db_session, quiz={"routine_level": "regularly"})
     assert len(plan.daily.morning) == 5
     assert len(plan.daily.evening) == 4
 
 
 def test_routine_level_sometimes_keeps_advanced_routine(db_session):
-    """Same expectation as `regularly` — only `"no"` triggers the
-    beginner branch."""
+    """sometimes → advanced routine; only "no" triggers beginner branch."""
     plan = _generate(db_session, quiz={"routine_level": "sometimes"})
     assert len(plan.daily.morning) == 5
     assert len(plan.daily.evening) == 4
@@ -114,8 +100,7 @@ def test_routine_level_sometimes_keeps_advanced_routine(db_session):
 
 
 def test_very_sensitive_drops_evening_treatment_step(db_session):
-    """Both the legacy boolean and the new 3-way enum collapse to the
-    same "no harsh actives at night" behaviour."""
+    """Legacy bool and 3-way enum both drop evening treatment."""
     for quiz in (
         {"sensitivity": True},
         {"raw_sensitivity": "very_sensitive"},
@@ -125,21 +110,17 @@ def test_very_sensitive_drops_evening_treatment_step(db_session):
         assert "treatment" not in evening_cats, (
             f"evening still contains treatment for quiz={quiz}: {evening_cats}"
         )
-        # Morning stays full — only the evening "treatment" step is removed.
         assert len(plan.daily.morning) == 5
 
 
 def test_sometimes_reacts_does_not_drop_treatment(db_session):
-    """Mid-level sensitivity is NOT enough to disable actives — only
-    the topmost `very_sensitive` triggers the rule. Documented in
-    `_is_very_sensitive` rationale."""
+    """Mid-level sensitivity doesn't trigger the rule; only very_sensitive does."""
     plan = _generate(db_session, quiz={"raw_sensitivity": "sometimes_reacts"})
     assert "treatment" in _categories(plan.daily.evening)
 
 
 def test_very_sensitive_swaps_monday_weekly_tip(db_session):
-    """The default Monday tip is "AHA/BHA exfoliation" which is too
-    harsh; sensitive users get a gentler substitute."""
+    """Default Monday AHA/BHA tip swapped for a gentler substitute."""
     default_plan = _generate(db_session, quiz=None)
     sensitive_plan = _generate(db_session, quiz={"raw_sensitivity": "very_sensitive"})
 
@@ -152,8 +133,7 @@ def test_very_sensitive_swaps_monday_weekly_tip(db_session):
 
 
 def test_very_sensitive_appends_patch_test_lifestyle_tip(db_session):
-    """The conservative patch-test reminder appears in lifestyle tips
-    for very-sensitive users only."""
+    """Patch-test reminder appears in lifestyle tips for very-sensitive only."""
     default = _generate(db_session, quiz=None)
     sensitive = _generate(db_session, quiz={"raw_sensitivity": "very_sensitive"})
     assert not any("patch-test" in t.lower() for t in default.lifestyle_tips)
@@ -164,8 +144,7 @@ def test_very_sensitive_appends_patch_test_lifestyle_tip(db_session):
 
 
 def test_rarely_never_sunscreen_appends_daily_reminder(db_session):
-    """`sunscreen_usage = "rarely_never"` adds an "Every day" weekly
-    SPF reminder AND a lifestyle nudge."""
+    """rarely_never → adds "Every day" weekly SPF reminder + lifestyle nudge."""
     plan = _generate(db_session, quiz={"sunscreen_usage": "rarely_never"})
 
     weekly_days = [t.day for t in plan.weekly_tips]

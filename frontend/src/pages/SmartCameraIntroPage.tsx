@@ -1,16 +1,5 @@
 /**
- * Smart Camera intro — entry point at `/capture`.
- *
- * Shows the four pre-shot rules (remove glasses / pull hair back /
- * neutral expression / good lighting) and two equal-status CTAs:
- *   - "Take 3 selfies" → /smart-camera (LRP-style guided capture)
- *   - "Upload photo"   → opens an inline file picker; on a valid
- *     file it pushes the File into FlowProvider and continues into
- *     the existing /quiz/skin-type flow.
- *
- * The previous `CapturePage` file is kept in the codebase as a
- * fallback (per the explicit adjustment to the plan), but it's no
- * longer wired to a route — the intro inlines its file-picker logic.
+ * Smart Camera intro at /capture — pre-shot rules + "Take 3 selfies" / "Upload photo" CTAs.
  */
 import { ChangeEvent, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";

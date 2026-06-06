@@ -1,23 +1,4 @@
-/**
- * AuthProvider tests.
- *
- * What's pinned here:
- *
- * 1. **Hydration** — a token already present in localStorage on mount
- *    is picked up; `isAuthenticated` flips to `true` on the first
- *    render without an extra network call.
- * 2. **Login** — a successful `api.login` call stores the
- *    `{ token, user }` pair in localStorage, exposes them on
- *    `useAuth()`, and any subsequent `fetch` triggered by `api.*`
- *    carries the `Authorization: Bearer <token>` header.
- * 3. **Logout** — clears both state and localStorage; subsequent
- *    fetches no longer carry the bearer header.
- * 4. **401 handling** — a 401 from any `api.*` call clears the auth
- *    state automatically via the `setOnUnauthorized` callback.
- *
- * We mock the global `fetch` so no real network ever runs; the
- * assertions look at the exact `Headers` the wrapper attached.
- */
+/** AuthProvider: hydration, login, logout, and global 401 handling. */
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -84,9 +65,7 @@ describe("AuthProvider", () => {
           });
         }
         if (url.endsWith("/analysis/history")) {
-          // Echo back the Authorization header in the body so the
-          // test can assert on it without rummaging through the
-          // request directly.
+          // Echo Authorization header in body for assertion.
           const headers = new Headers(init?.headers);
           return mockResponse({
             seen_auth: headers.get("Authorization") ?? null,
@@ -119,13 +98,7 @@ describe("AuthProvider", () => {
   });
 
   it("attaches the bearer SYNCHRONOUSLY — even on a fetch fired in the same microtask as login resolves (regression: AnalyzingPage race)", async () => {
-    // Reproduces the bug where AnalyzingPage's mount effect ran its
-    // /analysis/upload fetch BEFORE AuthProvider's "push token into
-    // api.ts" useEffect fired, so the request leaked out as
-    // anonymous and the backend's demo-user fallback picked it up.
-    // The fix moves the setAuthToken push into adopt() + the
-    // useState lazy initializer so it lands before any child mount
-    // effect runs.
+    // Bearer must land BEFORE any child mount-effect fires its first fetch.
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
       const url = String(_input);
       if (url.endsWith("/auth/login")) {
@@ -142,15 +115,10 @@ describe("AuthProvider", () => {
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-    // Note: NO `act` wrapping around the chained call below — the
-    // bug only repro'd before React flushed any effects.  We
-    // explicitly invoke history() in the same microtask as login's
-    // resolve, mimicking a navigation + mount-effect fetch.
+    // history() in the same microtask as login resolves, mimicking a mount-effect.
     let echoed: { seen_auth: string | null } | null = null;
     await act(async () => {
       await result.current.login("alice@example.com", "password123").then(() => {
-        // Same continuation as `await login(...); api.history()`
-        // would do inside an effect — no waiting for re-render.
         return api.history().then((r) => {
           echoed = r as unknown as { seen_auth: string | null };
         });

@@ -1,15 +1,4 @@
-/**
- * Unit coverage for the AI Skin Report pure helpers.  These functions
- * encode the wording rules and prioritization that make the report
- * feel calibrated and brand-safe, so the tests intentionally pin:
- *
- *   - the confidence threshold boundaries (a 0.74 vs 0.75 slip would
- *     be invisible in QA but very visible in the badge),
- *   - the provider label, since leaking `mock_haut` into the UI is
- *     the kind of bug that ships unnoticed,
- *   - the legacy fallback path, which is the silent majority of
- *     historical scans.
- */
+/** AI Skin Report pure helpers — pins thresholds, provider label, legacy fallback. */
 import { describe, expect, it } from "vitest";
 
 import type { AIMetricsView, SkinFeatures } from "../types";

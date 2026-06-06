@@ -1,9 +1,4 @@
-"""Test fixtures.
-
-We swap PostgreSQL for an in-memory SQLite engine so the test suite is
-self-contained and fast. The schema is created via SQLAlchemy metadata,
-and each test runs against a clean database.
-"""
+"""In-memory SQLite engine + clean schema per test."""
 from __future__ import annotations
 
 import os
@@ -16,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("REDIS_URL", "redis://localhost:9/0")  # unreachable on purpose
+os.environ.setdefault("REDIS_URL", "redis://localhost:9/0")  # unreachable
 
 from app.api.deps import cache_dependency  # noqa: E402
 from app.db.session import get_db  # noqa: E402
@@ -50,8 +45,7 @@ def db_engine():
 def db_session(db_engine) -> Generator:
     TestingSession = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
     db = TestingSession()
-    # seed product catalogue so unit tests against the engine
-    # have a non-empty catalogue to score against.
+    # Engine unit tests need a non-empty catalogue.
     from app.db.seed import seed_products
 
     seed_products(db)
@@ -75,7 +69,6 @@ def client(db_engine) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_db] = _get_db
     app.dependency_overrides[cache_dependency] = lambda: _NoopCache()
 
-    # seed minimal product catalogue
     from app.db.seed import seed_products
 
     db = TestingSession()

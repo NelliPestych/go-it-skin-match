@@ -1,27 +1,4 @@
-"""Tests for the real Haut.AI provider.
-
-We never call the live API in the normal suite — every test stubs the
-network with `httpx.MockTransport`, which the provider's internal
-`AsyncClient` uses transparently when injected.  The single live
-integration test is `skip`-guarded on `HAUT_AI_API_KEY` so CI and
-contributor laptops without credentials are unaffected.
-
-What's pinned here:
-
-* construction-time config errors (missing key, looping fallback),
-* the placeholder request shape (`/v1/skin-analysis` + Bearer token +
-  base64 image payload — exactly what `_build_request_payload` is
-  supposed to emit until we have the real Haut.AI spec),
-* normalization across numeric + categorical metric shapes,
-* tolerance to missing optional metrics (no crash, conservative
-  defaults),
-* error classification (auth, request, server, timeout),
-* the fallback contract — request-time errors *only* fall back, and
-  the resulting `raw_summary` is annotated rather than silently
-  swallowed,
-* `raw_summary` discipline — no base64, no giant vendor payloads
-  leak through.
-"""
+"""Haut.AI provider tests — all mocked via httpx.MockTransport; live smoke is skip-guarded."""
 from __future__ import annotations
 
 import json
@@ -59,14 +36,7 @@ def _provider_with_transport(
     api_key: str = "sk-test",
     fallback: Optional[object] = None,
 ) -> HautAIProvider:
-    """Build a `HautAIProvider` that routes its `AsyncClient` through
-    the supplied `MockTransport`.
-
-    The provider creates its own `AsyncClient`, so we monkey-patch
-    `httpx.AsyncClient` on a per-test basis to inject the transport.
-    Cleaner than refactoring the provider to accept a client — keeps
-    the production path free of test scaffolding.
-    """
+    """HautAIProvider with its AsyncClient routed through the given MockTransport."""
     return HautAIProvider(
         api_key=api_key,
         base_url="https://api.haut.ai",
@@ -77,12 +47,7 @@ def _provider_with_transport(
 
 @pytest.fixture
 def patch_async_client(monkeypatch):
-    """Patch `httpx.AsyncClient` to use a per-test MockTransport.
-
-    Returns a `set_transport(transport)` function the test calls with
-    its own handler.  This is wired generically so every test in this
-    file uses the same plumbing.
-    """
+    """Patch httpx.AsyncClient with a per-test MockTransport; returns set_transport(t)."""
     holder: dict = {"transport": None}
 
     real_async_client = httpx.AsyncClient
@@ -149,8 +114,7 @@ def test_constructor_requires_api_key():
 
 
 def test_constructor_rejects_recursive_haut_ai_fallback():
-    """A `haut_ai → haut_ai` fallback would loop on every transient
-    error.  The provider refuses such a chain at construction time."""
+    """haut_ai → haut_ai fallback would loop; refused at construction."""
     real = HautAIProvider(
         api_key="sk-test", base_url="https://api.haut.ai", timeout_seconds=10.0
     )
@@ -167,12 +131,7 @@ def test_constructor_rejects_recursive_haut_ai_fallback():
 
 
 def _success_response(extra: Optional[dict] = None) -> httpx.Response:
-    """A representative happy-path payload.
-
-    Field names are intentionally a mix of the canonical Haut.AI-ish
-    metric names and a couple of vendor-envelope wrappers (`result`,
-    `metrics`) so the parser exercises both paths.
-    """
+    """Happy-path payload mixing direct metric names + result/metrics envelopes."""
     body = {
         "request_id": "haut-req-abc",
         "model_version": "skin-v1.2.3",
@@ -193,7 +152,6 @@ def _success_response(extra: Optional[dict] = None) -> httpx.Response:
             "recommendation_signals": {
                 "uv_damage_score": 0.4,
                 "skin_age_estimate": 32.5,
-                # Non-numeric values must be silently dropped.
                 "vendor_flag": "ignored",
             },
         },
@@ -204,8 +162,7 @@ def _success_response(extra: Optional[dict] = None) -> httpx.Response:
 
 
 def test_analyze_normalizes_a_representative_response(patch_async_client):
-    """Single golden-path assertion: every normalized field lands on
-    a sane value derived from the stubbed payload."""
+    """Golden path — every normalized field lands on a sane value."""
     seen: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -219,36 +176,30 @@ def test_analyze_normalizes_a_representative_response(patch_async_client):
 
     result = provider.analyze(_DUMMY_FRONT, left=b"left", right=b"right")
 
-    # Wire shape ────────────────────────────────────────────────────
     assert seen["url"] == "https://api.haut.ai/v1/skin-analysis"
     assert seen["auth"] == "Bearer sk-test"
     assert [img["pose"] for img in seen["body"]["images"]] == ["front", "left", "right"]
-    # base64-encoded front bytes round-trip through the payload.
     assert seen["body"]["images"][0]["content_base64"] == _b64(_DUMMY_FRONT)
 
-    # Normalization ─────────────────────────────────────────────────
     assert result.provider == "haut_ai"
     assert result.skin_type == SkinType.COMBINATION
-    assert result.oiliness == Level.HIGH        # 72 → high
-    assert result.hydration_level == Level.MEDIUM  # 45 → medium
-    assert result.redness_level == Level.LOW    # "low"
-    assert result.pigmentation_level == Level.LOW  # 30 → low
+    assert result.oiliness == Level.HIGH
+    assert result.hydration_level == Level.MEDIUM
+    assert result.redness_level == Level.LOW
+    assert result.pigmentation_level == Level.LOW
     assert result.pores_score == pytest.approx(0.42)
-    assert result.acne == Level.LOW             # 18 → low
+    assert result.acne == Level.LOW
     assert result.fine_lines == Level.LOW
-    assert result.texture == Level.MEDIUM       # 55 → medium
+    assert result.texture == Level.MEDIUM
     assert result.confidence_score == pytest.approx(0.88)
 
-    # recommendation_signals dropped the non-numeric `vendor_flag`.
     assert "uv_damage_score" in result.recommendation_signals
     assert "skin_age_estimate" in result.recommendation_signals
     assert "vendor_flag" not in result.recommendation_signals
 
 
 def test_analyze_handles_missing_optional_metrics(patch_async_client):
-    """A vendor that only sends a subset of metrics must not crash —
-    missing fields fall back to the schema-level conservative
-    defaults (oiliness=MEDIUM, acne=LOW, fine_lines=LOW, texture=MEDIUM)."""
+    """Subset response must not crash — missing fields fall back to defaults."""
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -258,7 +209,6 @@ def test_analyze_handles_missing_optional_metrics(patch_async_client):
                 "metrics": {
                     "skin_type": "normal",
                     "hydration": 50,
-                    # everything else omitted
                 },
                 "confidence_score": 0.81,
             },
@@ -271,7 +221,6 @@ def test_analyze_handles_missing_optional_metrics(patch_async_client):
 
     assert result.skin_type == SkinType.NORMAL
     assert result.hydration_level == Level.MEDIUM
-    # Conservative defaults from the schema kick in here.
     assert result.oiliness == Level.MEDIUM
     assert result.acne == Level.LOW
     assert result.fine_lines == Level.LOW
@@ -281,9 +230,7 @@ def test_analyze_handles_missing_optional_metrics(patch_async_client):
 
 
 def test_raw_summary_is_compact_and_never_contains_image_bytes(patch_async_client):
-    """`raw_summary` must stay tiny and never echo the request body
-    back — base64 image payloads in `features_json` would balloon the
-    JSON column per scan."""
+    """raw_summary stays tiny — no base64 / image bytes echoed into features_json."""
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return _success_response()
@@ -294,7 +241,6 @@ def test_raw_summary_is_compact_and_never_contains_image_bytes(patch_async_clien
     result = provider.analyze(_DUMMY_FRONT)
     summary = result.raw_summary or {}
 
-    # Allow-list: nothing outside this small key set is ever stored.
     allowed = {
         "provider_request_id",
         "model_version",
@@ -307,12 +253,11 @@ def test_raw_summary_is_compact_and_never_contains_image_bytes(patch_async_clien
     }
     assert set(summary.keys()).issubset(allowed)
     assert "base64" not in json.dumps(summary).lower()
-    assert "images" not in summary  # never the inbound payload
+    assert "images" not in summary
     assert summary["images_received"] == 1
     assert summary["provider_request_id"] == "haut-req-abc"
     assert summary["model_version"] == "skin-v1.2.3"
     assert summary["processing_time_ms"] == 412
-    # Metric names actually received from the provider.
     assert "skin_type" in summary["received_metrics"]
     assert "oiliness" in summary["received_metrics"]
 
@@ -357,8 +302,7 @@ def test_invalid_json_response_raises_request_error(patch_async_client):
 
 
 def test_timeout_raises_server_error(patch_async_client):
-    """A timeout is classified as a server error so the fallback
-    wiring treats it the same as a 5xx."""
+    """Timeout → server error so fallback treats it like 5xx."""
 
     def handler(_request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectTimeout("timed out")
@@ -374,9 +318,7 @@ def test_timeout_raises_server_error(patch_async_client):
 
 
 def test_fallback_runs_when_request_fails(patch_async_client):
-    """A 500 with a configured fallback returns the fallback's result,
-    annotated with `raw_summary.fallback_used = True` and a short safe
-    error message."""
+    """500 + fallback → fallback's result + audit markers on raw_summary."""
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={"error": "vendor down"})
@@ -389,9 +331,7 @@ def test_fallback_runs_when_request_fails(patch_async_client):
 
     result = provider.analyze(_DUMMY_FRONT)
 
-    # Same shape as a normal mock_haut result …
     assert result.provider == "mock_haut"
-    # … plus the fallback markers on raw_summary.
     summary = result.raw_summary or {}
     assert summary.get("fallback_used") is True
     assert summary.get("original_provider") == "haut_ai"
@@ -399,14 +339,9 @@ def test_fallback_runs_when_request_fails(patch_async_client):
 
 
 def test_config_error_never_triggers_fallback(monkeypatch):
-    """If the API key is missing the construction itself raises —
-    the fallback is irrelevant.  Belt-and-braces: even if a future
-    bug somehow surfaced a `HautAIConfigError` at request time, the
-    public `analyze()` must propagate it instead of falling back."""
+    """Missing key raises at construction; analyze() must never silently fall back."""
 
     fallback = MockHautAIProvider()
-    # The constructor refuses a missing key — proves there's no quiet
-    # fallback path on bad config.
     with pytest.raises(HautAIConfigError):
         HautAIProvider(
             api_key=None,
@@ -434,8 +369,7 @@ def test_factory_routes_haut_ai(monkeypatch):
 
 
 def test_factory_haut_ai_missing_key_raises(monkeypatch):
-    """Missing API key must fail loudly at factory time — never
-    silently fall back to a different provider."""
+    """Missing key fails loudly at factory time — no silent provider switch."""
     factory_fn.cache_clear()
     monkeypatch.setattr("app.core.config.settings.skin_analysis_provider", "haut_ai")
     monkeypatch.setattr("app.core.config.settings.haut_ai_api_key", None)
@@ -508,22 +442,12 @@ def test_factory_rejects_unknown_fallback(monkeypatch):
     reason="HAUT_AI_API_KEY not set; live integration test skipped",
 )
 def test_live_haut_ai_smoke():
-    """Single round-trip against the real Haut.AI endpoint.
-
-    Skipped unless the contributor explicitly opts in by exporting
-    `HAUT_AI_API_KEY`.  The assertions are intentionally weak — we
-    only want to know that the wire shape lines up and the response
-    normalizes cleanly, not pin specific values that depend on the
-    sample image.
-    """
+    """Live round-trip; opt-in via HAUT_AI_API_KEY; weak asserts on wire shape only."""
     provider = HautAIProvider(
         api_key=os.environ["HAUT_AI_API_KEY"],
         base_url=os.environ.get("HAUT_AI_BASE_URL", "https://api.haut.ai"),
         timeout_seconds=float(os.environ.get("HAUT_AI_TIMEOUT_SECONDS", "30")),
     )
-    # Bytes are intentionally a tiny placeholder — the real test is
-    # whether auth + endpoint shape work.  A 4xx here is also useful
-    # signal and will fail visibly.
     sample = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
     result = provider.analyze(sample)
     assert result.provider == "haut_ai"

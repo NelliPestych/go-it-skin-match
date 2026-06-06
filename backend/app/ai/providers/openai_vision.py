@@ -1,53 +1,13 @@
-"""OpenAI Vision skin-analysis provider.
+"""OpenAI Vision skin-analysis provider — defensive wrapper around the official SDK.
 
-A thin, defensive wrapper around the official `openai` Python SDK that
-plugs into the project's `SkinAnalysisProvider` interface.  Used in
-production when `SKIN_ANALYSIS_PROVIDER=openai_vision`.
-
-Design choices mirror `HautAIProvider` on purpose — the provider
-abstraction stays simple by having every concrete provider follow the
-same three-method shape:
-
-  * `_build_messages(...)`     — wire shape for the outbound request.
-  * `_call_openai(...)`        — single touchpoint for the SDK.
-  * `_normalize_response(...)` — vendor → `NormalizedSkinAnalysisResult`.
-
-Notes pinned here because they are easy to regress:
-
-1. **Sync public method.**  The rest of the system speaks sync; we use
-   the SDK's sync client internally, no async plumbing leaks out.
-
-2. **Strict JSON output.**  The prompt forbids free-form prose and the
-   request enables `response_format={"type": "json_object"}`.  The
-   parser is still tolerant — anything we can't parse falls back to
-   the `NormalizedSkinAnalysisResult` schema defaults.
-
-3. **No medical claims.**  The system prompt explicitly forbids
-   medical / dermatological diagnosis and disease language; only
-   cosmetic, visually-estimable signals are asked for.
-
-4. **`raw_summary` budget.**  We persist a small audit blob — model
-   name, the OpenAI response id, the prompt token / completion token
-   counts, the short `summary` string the model returned.  No base64,
-   no full response dump, no image bytes.
-
-5. **API key hygiene.**  The key is read in `__init__`, never logged.
-   Error messages are short safe strings.
-
-6. **Fallback semantics.**  Optional `fallback` provider is invoked
-   on every request-time error.  `OpenAIVisionConfigError` is never
-   fallback-eligible — config errors must propagate so deploy-time
-   misconfiguration fails loudly.  The fallback result is annotated
-   with `raw_summary.fallback_used`, `original_provider` and
-   `original_provider_error` so operators can spot it in
-   `features_json` without trawling logs.
-
-7. **Front image only (for now).**  The interface accepts `left` and
-   `right` for future multi-angle support; this provider currently
-   sends only the front shot to keep token cost low and stay within
-   one API call.  Side bytes are persisted by the service layer
-   already; a richer payload can be enabled without touching the
-   `SkinAnalysisProvider` contract.
+Invariants (easy to regress):
+* Strict JSON output (response_format=json_object) + tolerant parser.
+* No medical claims — prompt forbids diagnosis / disease language.
+* raw_summary is allow-listed: model id, response id, token counts, short summary.
+  No base64, no full response, no image bytes.
+* API key never logged; error strings are short.
+* Optional fallback is invoked on request-time errors only — config errors propagate.
+* Front shot only (cost). Side bytes already persisted by the service layer.
 """
 from __future__ import annotations
 
@@ -66,29 +26,14 @@ logger = logging.getLogger(__name__)
 
 _PROVIDER_NAME = "openai_vision"
 
-# Hard-cap on the `summary` string we accept from the model.  The
-# prompt asks for ≤ 120 chars; the cap is a belt-and-braces defence
-# against accidental drift that would bloat `features_json`.
+# Belt-and-braces caps against drifted/long payloads bloating features_json.
 _SUMMARY_MAX_CHARS = 240
-
-# Hard-cap on every error message we ever attach to `raw_summary`
-# (`original_provider_error`).  Defence against an SDK error chain
-# accidentally carrying a long server-side payload — operators only
-# need a short tag to act, anything longer should live in logs.
 _ERROR_MESSAGE_MAX_CHARS = 200
 
-# Levels we'll accept from the model.  Used as a small validator
-# before calling `_bucket_score`, which is itself tolerant.
 _ALLOWED_LEVELS = {"low", "medium", "high"}
-
-# Skin types we'll accept from the model.  Same idea as above.
 _ALLOWED_SKIN_TYPES = {"dry", "oily", "combination", "normal"}
 
-# Allow-list of `raw_summary` keys this provider is ever permitted to
-# emit.  Enforced at runtime in `_normalize_response` so a future
-# helper / fallback annotation can't accidentally smuggle a payload
-# field (e.g. base64 echo) into the JSON column.  Tests pin the same
-# set independently — defence in depth.
+# Allow-list of raw_summary keys — enforced at runtime to prevent payload smuggling.
 _RAW_SUMMARY_ALLOWED_KEYS = frozenset(
     {
         "model",
@@ -104,20 +49,10 @@ _RAW_SUMMARY_ALLOWED_KEYS = frozenset(
 )
 
 
-# Image detail level we pass to the OpenAI Vision endpoint.  "low" is
-# the cheap path: the model processes a 512px-down-scaled version of
-# the image and returns ~85 tokens regardless of source size, which
-# brings prompt-token cost down ~100× vs the "high" / unset default.
-# Quality is more than enough for our coarse `low / medium / high`
-# cosmetic signals; the MVP doesn't need pixel-level skin analysis.
+# "low" downsamples to 512px, ~85 tokens regardless of source size — ~100× cheaper.
 _IMAGE_DETAIL = "low"
 
-# ── System prompt ─────────────────────────────────────────────────────
-# Kept as a constant so tests can assert on its presence / wording.
-# The instruction is deliberately strict on safety: no medical or
-# dermatological diagnosis, no disease names, no certainty language,
-# and prefer "medium" when uncertain so we don't push the rec engine
-# toward strong corrective products on shaky evidence.
+# Pinned as a constant so tests can assert wording stays safe (no diagnosis language).
 
 _SYSTEM_PROMPT = (
     "You are a cosmetic skin analysis assistant for a skincare "
@@ -190,23 +125,15 @@ class OpenAIVisionServerError(OpenAIVisionError):
     """5xx, rate limit, network / timeout."""
 
 
-# ── Helpers (intentionally duplicated from haut_ai to keep each ───────
-# provider self-contained — change isolation matters more than DRY
-# for code this small).
+# Helpers intentionally duplicated from haut_ai — change isolation > DRY here.
 
 
 def _bucket_score(value: Any) -> Optional[Level]:
-    """Map a model-returned value to our `Level` enum.
-
-    Accepts both the categorical strings the prompt asks for and a
-    numeric value (0..1 or 0..100) the model might emit despite the
-    instruction.  Anything else returns `None` so the caller can fall
-    back to the schema default rather than coerce garbage into a tier.
-    """
+    """Map model-returned categorical string or numeric 0..1/0..100 to Level."""
     if value is None:
         return None
     if isinstance(value, bool):
-        # bool subclasses int — refuse it explicitly.
+        # bool subclasses int — refuse explicitly.
         return None
     if isinstance(value, (int, float)):
         import math
@@ -249,13 +176,7 @@ def _parse_skin_type(value: Any) -> Optional[SkinType]:
 
 
 def _level_to_pores_score(level: Optional[Level]) -> float:
-    """Project a `Level` onto our 0..1 `pores_score` float.
-
-    The prompt asks for a categorical `pores_visibility`, but the
-    legacy schema field `pores_score` is a continuous 0..1.  We map
-    LOW → 0.2, MEDIUM → 0.5, HIGH → 0.8 — the same buckets the
-    Haut.AI provider uses for the same projection.
-    """
+    """Project Level → 0..1 pores_score (LOW=0.2, MEDIUM=0.5, HIGH=0.8)."""
     if level is Level.LOW:
         return 0.2
     if level is Level.HIGH:
@@ -309,14 +230,12 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
         fallback: Optional[SkinAnalysisProvider] = None,
         client: Any = None,
     ) -> None:
-        # Fail loudly at construction time so a deploy without the
-        # secret can't silently serve a degraded experience.
+        # Fail at construction so a misconfigured deploy can't silently degrade.
         if not api_key or not api_key.strip():
             raise OpenAIVisionConfigError(
                 "OPENAI_API_KEY is required when SKIN_ANALYSIS_PROVIDER=openai_vision. "
                 "Set the key or switch to SKIN_ANALYSIS_PROVIDER=mock_haut."
             )
-        # Refuse a recursive `openai_vision → openai_vision` fallback.
         if fallback is not None and getattr(fallback, "name", None) == _PROVIDER_NAME:
             raise OpenAIVisionConfigError(
                 "SKIN_ANALYSIS_FALLBACK_PROVIDER must be one of {local, mock_haut}; "
@@ -329,12 +248,9 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
         self._fallback = fallback
 
         if client is not None:
-            # Test-only injection point.
-            self._client = client
+            self._client = client  # test injection
         else:
-            # Lazy import keeps the project importable on machines
-            # without the SDK; the explicit re-raise gives operators
-            # a clear pointer when the dependency is missing.
+            # Lazy import so the project imports without the SDK installed.
             try:
                 from openai import OpenAI  # type: ignore[import-not-found]
             except ImportError as exc:  # pragma: no cover - exercised via test
@@ -344,17 +260,13 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
                 ) from exc
             self._client = OpenAI(api_key=self._api_key, timeout=timeout_seconds)
 
-    # ── Public entry point ───────────────────────────────────────────
-
     def analyze(
         self,
         front: bytes,
         left: Optional[bytes] = None,
         right: Optional[bytes] = None,
     ) -> NormalizedSkinAnalysisResult:
-        # Side images are accepted for interface compatibility but are
-        # not sent to OpenAI in this version.  Persistence still keeps
-        # them so a future multi-image provider can pick them up.
+        # Sides kept in the signature for forward-compat; persistence happens upstream.
         _ = (left, right)
         try:
             response = self._call_openai(front)
@@ -364,19 +276,8 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
                 raise
             return self._run_fallback(front, left, right, exc)
 
-    # ── Build ────────────────────────────────────────────────────────
-
     def _build_messages(self, front: bytes) -> List[Dict[str, Any]]:
-        """Compose the Chat Completions `messages` payload.
-
-        Single user turn carrying the system instructions + the front
-        image inlined as a base64 data URL.  The image part carries
-        `detail: "low"` so OpenAI processes a down-scaled version and
-        returns ~85 tokens regardless of source size — quality is
-        more than enough for our coarse `low / medium / high` signals
-        and brings prompt-token cost down ~100× compared to the
-        default high-detail path.
-        """
+        """System + single user turn with inline base64 image at detail=low."""
         image_data_url = f"data:image/jpeg;base64,{_b64(front)}"
         return [
             {
@@ -416,8 +317,7 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
         into a typed `OpenAIVisionError` subclass so `analyze()` can
         decide whether to fall back or propagate.
         """
-        # Imported lazily so the module never fails to import on
-        # machines without the SDK installed.
+        # Lazy import so the module imports without the SDK installed.
         try:
             from openai import (  # type: ignore[import-not-found]
                 APIConnectionError,
@@ -452,9 +352,7 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
         except BadRequestError as exc:
             raise OpenAIVisionRequestError("OpenAI rejected the request") from exc
         except APIError as exc:
-            # Catch-all for SDK-raised API errors not classified above
-            # (e.g. 5xx).  Treated as server errors so the fallback
-            # wiring picks them up.
+            # Catch-all (incl. 5xx); treated as server error so fallback applies.
             raise OpenAIVisionServerError("OpenAI API error") from exc
 
         try:
@@ -489,21 +387,14 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
             ),
         }
 
-    # ── Normalize ────────────────────────────────────────────────────
-
     def _normalize_response(
         self,
         raw: Dict[str, Any],
     ) -> NormalizedSkinAnalysisResult:
-        """Project the model's JSON onto `NormalizedSkinAnalysisResult`.
-
-        Tolerant by design — every metric is optional; anything we
-        can't parse falls back to the schema defaults.
-        """
+        """Project model JSON onto NormalizedSkinAnalysisResult; tolerant of missing keys."""
         body: Dict[str, Any] = raw.get("parsed") or {}
 
-        # Pull metrics, recording which ones the model actually
-        # delivered so we can audit without storing the full body.
+        # Track which metrics arrived so we can audit without storing the full body.
         received: List[str] = []
 
         def _read(metric: str) -> Any:
@@ -553,8 +444,7 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
             "received_metrics": sorted(received),
             "summary": summary_text,
         }
-        # Drop None entries so raw_summary stays compact, then enforce
-        # the allow-list at runtime as a final safety net.
+        # Drop None + enforce allow-list as a final defence against payload smuggling.
         raw_summary = {
             k: v
             for k, v in raw_summary.items()
@@ -577,8 +467,6 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
             provider=self.name,
         )
 
-    # ── Fallback ─────────────────────────────────────────────────────
-
     def _run_fallback(
         self,
         front: bytes,
@@ -588,10 +476,7 @@ class OpenAIVisionProvider(SkinAnalysisProvider):
     ) -> NormalizedSkinAnalysisResult:
         """Run the configured fallback provider and tag the result.
 
-        The error message we surface is the short typed-error string
-        only — never the upstream `__cause__` chain.  A hard char cap
-        guards against an SDK error that accidentally embedded a long
-        server response body.  Stack traces never reach `raw_summary`.
+        Char-capped typed-error string only — never the __cause__ chain.
         """
         safe_message = (str(original_error) or original_error.__class__.__name__)[
             :_ERROR_MESSAGE_MAX_CHARS

@@ -1,27 +1,6 @@
 /**
- * Pure guidance evaluators for the Smart Camera flow.
- *
- * Two outputs from the same inputs:
- *
- *   evaluateGates(face, lighting, pose) → { lightingOk,
- *                                           positionOk,
- *                                           poseOk }
- *     Independent per-gate booleans for the top status panel.
- *     Each chip turns green when its own gate passes; the user
- *     therefore always sees the failing gate, not a single rolled-up
- *     message.
- *
- *   evaluateGuidance(face, lighting, pose) → GuidanceReport
- *     The single dominant message ("Move closer", "Too dark",
- *     "Turn your face left", …). Lighting takes priority — exposure
- *     problems block downstream skin analysis. Once exposure is
- *     ok, position checks run, then the pose-specific yaw band.
- *
- * Yaw sign convention (un-mirrored coords from MediaPipe):
- *   yawDeg > 0  → user has turned head TO USER-LEFT
- *   yawDeg < 0  → user has turned head TO USER-RIGHT
- * In the mirrored selfie view that's the opposite, but the chip
- * labels and prompts are written from the user's POV.
+ * Pure guidance evaluators for Smart Camera.
+ * Yaw sign (un-mirrored MediaPipe coords): >0 = user-left, <0 = user-right.
  */
 import type {
   CaptureStep,
@@ -31,9 +10,6 @@ import type {
   LightingResult,
 } from "../types/camera";
 
-// Tunable thresholds. Calibrated against typical phone front-camera
-// crops; see commit #4 for how yawDeg is computed and why ±10° is
-// the front-band default.
 export const SIZE_MIN = 0.35;
 export const SIZE_MAX = 0.85;
 export const SIZE_IDEAL = 0.6;
@@ -78,7 +54,7 @@ export function evaluateGuidance(
   lighting: LightingResult,
   pose: CaptureStep,
 ): GuidanceReport {
-  // 1. Lighting — wrong exposure ruins skin analysis; fix first.
+  // Lighting first — wrong exposure ruins skin analysis.
   if (lighting.status === "too_dark") {
     return {
       status: "too_dark",
@@ -96,7 +72,6 @@ export function evaluateGuidance(
     };
   }
 
-  // 2. Face presence + framing.
   if (!face.hasFace) {
     return {
       status: "no_face",
@@ -123,7 +98,7 @@ export function evaluateGuidance(
     }
   }
 
-  // 3. Pose-aware yaw check.
+  // Pose-aware yaw check.
   const yaw = face.yawDeg;
   if (pose === "front") {
     if (yaw > YAW_FRONT_TOL) {
@@ -179,7 +154,7 @@ export function evaluateGuidance(
     }
   }
 
-  // 4. All checks pass — composite quality from size + centring.
+  // All checks pass — composite quality from size + centring.
   const sizeQuality = 1 - Math.abs(face.faceSize - SIZE_IDEAL) / SIZE_IDEAL;
   const centerOff = face.faceCenter
     ? Math.hypot(face.faceCenter.x - 0.5, face.faceCenter.y - 0.5)

@@ -1,26 +1,9 @@
-/**
- * Quiz config validity.
- *
- * The config is the SINGLE source of truth for the rendered quiz —
- * if any assumption it relies on drifts (a missing required option,
- * a typo in an option id, a duplicate slot), the QuizPage component
- * silently goes wrong rather than failing loudly.  These tests pin
- * every assumption.
- *
- * Why hard-coding the legal option ids per question instead of
- * pulling them from `types/quiz.ts`:
- * The unions in `types/quiz.ts` are *erased at runtime*, so the
- * test would have nothing to iterate over.  Listing them explicitly
- * here makes the test trivially debuggable — a failure points right
- * at the question that drifted, without any reflection magic.
- */
+/** Quiz config validity — pins option-id sets, duplicates, required flags. */
 import { describe, expect, it } from "vitest";
 
 import { skinQuizQuestions, SKIN_QUIZ_TOTAL_STEPS } from "./skinQuiz";
 
-// Per-question legal option-id sets.  Pulled by hand from
-// `types/quiz.ts`; if you add a value to one of those unions, also
-// add it here so the test stays meaningful.
+// Legal option-id sets per question; keep in sync with types/quiz.ts unions.
 const LEGAL_OPTION_IDS: Record<string, readonly string[]> = {
   skin_type: ["dry", "oily", "combination", "normal", "not_sure"],
   concerns: [
