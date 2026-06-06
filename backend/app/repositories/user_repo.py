@@ -22,6 +22,19 @@ class UserRepository:
         self.db.refresh(user)
         return user
 
+    def create_with_password(self, email: str, password_hash: str) -> User:
+        """Create an account with a pre-hashed password.
+
+        Hashing happens in `core.security.hash_password` — this method
+        never sees plaintext.  The caller is responsible for checking
+        `get_by_email` first to surface a clear 409 on duplicates.
+        """
+        user = User(email=email, password_hash=password_hash)
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
     def get_or_create(self, email: str) -> User:
         existing = self.get_by_email(email)
         if existing:

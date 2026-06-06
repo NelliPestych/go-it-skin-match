@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
-import { api } from "../services/api";
+import { api, isUnauthorized } from "../services/api";
+import { useAuth } from "../state/auth";
 import type { AnalysisHistoryItem } from "../types";
 
 function formatDate(iso: string): string {
@@ -20,8 +21,14 @@ function formatDate(iso: string): string {
 
 export default function HistoryPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [items, setItems] = useState<AnalysisHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const onLogout = () => {
+    logout();
+    navigate("/", { replace: true });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +37,11 @@ export default function HistoryPage() {
         const data = await api.history();
         if (!cancelled) setItems(data);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load history");
+        // 401 → AuthProvider's global handler already routes to /auth;
+        // a transient toast on the page about to unmount would just
+        // flash before the redirect.
+        if (cancelled || isUnauthorized(err)) return;
+        setError(err instanceof Error ? err.message : "Failed to load history");
       }
     })();
     return () => {
@@ -53,16 +64,32 @@ export default function HistoryPage() {
           <span className="eyebrow">My Results</span>
           <div className="divider" style={{ background: "var(--peach)" }} />
         </div>
-        <div style={{ width: 40 }} />
+        <button
+          type="button"
+          onClick={onLogout}
+          className="text-link"
+          style={{ fontSize: 12, padding: 0 }}
+          aria-label="Log out"
+        >
+          Log out
+        </button>
       </div>
 
       <div className="screen-pad relative">
         <h1 className="h1" style={{ marginBottom: 8 }}>
           Your skin journey
         </h1>
-        <p className="body" style={{ marginBottom: 24 }}>
+        <p className="body" style={{ marginBottom: user ? 4 : 24 }}>
           Every analysis you run is saved here so you can compare and follow up.
         </p>
+        {user && (
+          <p
+            className="body"
+            style={{ marginBottom: 24, fontSize: 12, opacity: 0.65 }}
+          >
+            Signed in as {user.email}
+          </p>
+        )}
 
         {error && <div className="error">{error}</div>}
 

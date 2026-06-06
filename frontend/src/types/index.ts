@@ -142,3 +142,17 @@ export interface AnalysisDetails {
   recommendations: RecommendationItem[];
   plan?: BeautyPlan | null;
 }
+
+// ── Auth ─────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: "bearer";
+  user: AuthUser;
+}
