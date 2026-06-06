@@ -698,7 +698,7 @@ curl http://localhost:8000/analysis/history -H "Authorization: Bearer $TOKEN"
 
 ## 📸 Smart Camera capture
 
-The `/smart-camera` route is an LRP-style guided 3-shot capture
+The `/smart-camera` route is a guided 3-shot capture
 flow built on top of MediaPipe FaceLandmarker (478 landmarks),
 WebRTC `getUserMedia`, and a Canvas2D overlay. It walks the user
 through three poses — **front**, **left**, **right** — gating each

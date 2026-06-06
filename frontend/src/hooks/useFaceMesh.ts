@@ -1,21 +1,4 @@
-/**
- * Face landmarks via MediaPipe FaceLandmarker (478 landmarks).
- *
- * The hook runs the model on each video frame via `requestAnimation
- * Frame` and exposes a normalized result that can be rendered on a
- * canvas overlay (commit #6) or fed into the guidance evaluator
- * (commit #7).
- *
- * Why a heuristic yaw (not the 3-D transformation matrix)?
- * The full pose matrix requires `outputFacialTransformationMatrixes:
- * true`, which doubles model latency on weaker devices. For the MVP
- * we use a simple landmark ratio that is good enough to bucket a
- * head into front / left / right.
- *
- * The hook is defensive — if MediaPipe fails to load (network, CSP,
- * unsupported browser), `error` is populated and `hasFace` stays
- * `false` so the camera preview keeps working without detection.
- */
+/** MediaPipe FaceLandmarker @ RAF; landmark-ratio yaw (no full pose matrix). */
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useEffect, useRef, useState } from "react";
 
@@ -26,10 +9,7 @@ const WASM_PATH =
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
-// Canonical Face Mesh landmark indices (MediaPipe numbering).
-//   1   — nose tip
-//  33   — right-eye outer corner (face's right = camera's left)
-// 263   — left-eye  outer corner (face's left  = camera's right)
+// MediaPipe FaceMesh indices.
 const NOSE_TIP = 1;
 const RIGHT_EYE_OUTER = 33;
 const LEFT_EYE_OUTER = 263;
@@ -45,18 +25,7 @@ const INITIAL: FaceMeshResult = {
   error: null,
 };
 
-/**
- * Approximate head yaw in degrees from three landmarks.
- *
- * yawNorm = (nose.x - eyeMidX) / eyeDist
- *   ~0  → looking at camera
- *   >0  → user has rotated their head TO USER-LEFT (perceived as
- *         "turned right" in the mirrored selfie view)
- *   <0  → opposite
- *
- * The 60 multiplier is a rough conversion to degrees calibrated
- * empirically (yawNorm = 0.25 ≈ 15° turn, plenty for our buckets).
- */
+/** Approximate yaw from nose + eye landmarks; >0 = user-left. 60 = empirical deg conv. */
 function computeYawDeg(landmarks: FaceLandmark[]): number {
   if (landmarks.length <= LEFT_EYE_OUTER) return 0;
   const nose = landmarks[NOSE_TIP];
@@ -84,10 +53,7 @@ function computeBBox(landmarks: FaceLandmark[]): FaceBBox | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** Return shape of `useFaceMesh`. Extends `FaceMeshResult` with an
- *  always-fresh ref to the latest landmarks — the throttled React
- *  state is enough for guidance, but the canvas overlay needs pixel-
- *  fresh data every frame and reads from the ref instead. */
+/** FaceMeshResult + always-fresh ref so the canvas overlay can read every frame. */
 export interface UseFaceMeshReturn extends FaceMeshResult {
   landmarksRef: React.MutableRefObject<FaceLandmark[]>;
 }
@@ -99,10 +65,9 @@ export function useFaceMesh(
   const [result, setResult] = useState<FaceMeshResult>(INITIAL);
   const detectorRef = useRef<FaceLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
-  // Throttle setState — we only want React re-renders when summary
-  // fields change, not 60×/s as landmark noise jitters.
+  // Throttle setState — don't re-render React on every landmark jitter.
   const lastSnapshotRef = useRef<string>("");
-  // Always-fresh landmarks for the canvas overlay (commit #6).
+  // Always-fresh landmarks for the canvas overlay.
   const landmarksRef = useRef<FaceLandmark[]>([]);
 
   useEffect(() => {
@@ -122,7 +87,7 @@ export function useFaceMesh(
           runningMode: "VIDEO",
           numFaces: 1,
           outputFaceBlendshapes: false,
-          // Skip the 4×4 pose matrix; we use a landmark heuristic instead.
+          // Skip 4×4 pose matrix; landmark-ratio yaw is sufficient.
           outputFacialTransformationMatrixes: false,
           minFaceDetectionConfidence: 0.5,
           minFacePresenceConfidence: 0.5,
@@ -151,7 +116,6 @@ export function useFaceMesh(
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
-      // Skip frames before the video has dimensions.
       if (videoEl.readyState < 2 || videoEl.videoWidth === 0) {
         rafRef.current = requestAnimationFrame(loop);
         return;
@@ -163,9 +127,7 @@ export function useFaceMesh(
         const faceLandmarks = out.faceLandmarks?.[0];
 
         if (!faceLandmarks || faceLandmarks.length === 0) {
-          // Sync the always-fresh ref BEFORE the throttled state
-          // update so the canvas overlay clears its mesh promptly
-          // even if React skips this re-render.
+          // Clear ref BEFORE throttled state update so overlay clears even if React skips.
           landmarksRef.current = [];
           publish({
             ready: true,
@@ -200,7 +162,6 @@ export function useFaceMesh(
           });
         }
       } catch (err) {
-        // One bad frame shouldn't kill the loop — log once and continue.
         // eslint-disable-next-line no-console
         console.warn("face mesh error:", err);
       }
@@ -209,10 +170,7 @@ export function useFaceMesh(
     }
 
     function publish(next: FaceMeshResult) {
-      // Coalesce identical updates (rounded to 1pp) to avoid React
-      // re-renders 60×/s. Mesh-canvas consumers that need fresher
-      // landmarks should wire their own RAF off the video element
-      // — this hook is the source of truth for state, not DOM paint.
+      // Coalesce updates (rounded to 1pp) so React doesn't re-render 60×/s.
       const key = [
         next.hasFace ? 1 : 0,
         Math.round((next.faceCenter?.x ?? 0) * 100),

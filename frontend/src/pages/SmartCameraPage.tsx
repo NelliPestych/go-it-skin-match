@@ -1,5 +1,5 @@
 /**
- * Smart Camera page — full LRP-style guided 3-shot capture.
+ * Smart Camera — guided 3-shot capture flow.
  *
  * Composes:
  *   hooks
@@ -177,7 +177,7 @@ export default function SmartCameraPage() {
     return () => window.clearTimeout(t);
   }, [session.complete]);
 
-  // ── Final review (light cream theme, à la LRP) ─────────────────
+  // Final review screen (light cream theme).
   if (showReview) {
     return (
       <div className="sc-review-screen">

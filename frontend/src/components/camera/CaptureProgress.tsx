@@ -1,19 +1,4 @@
-/**
- * CaptureProgress — bottom row of three pose-silhouette circles
- * (front / left / right). Each one can be in three states:
- *
- *   active — bigger, white border, white silhouette icon
- *   done   — green border + green check (silhouette swapped for the
- *            check so a finished pose reads as "complete")
- *   todo   — small, dim border, dim silhouette
- *
- * The silhouette icons live in `./icons/Scan{Front,Left,Right}.tsx`
- * and inherit colour via `currentColor`, so the dot states drive
- * appearance without any prop plumbing.
- *
- * The list is purely a function of (current pose, captured set);
- * the parent wires it from `useSmartCaptureFlow`.
- */
+/** 3 pose-silhouette circles (front/left/right); each is active|done|todo. */
 import type { CaptureImages, CaptureStep } from "../../types/camera";
 import ScanFront from "./icons/ScanFront";
 import ScanLeft from "./icons/ScanLeft";

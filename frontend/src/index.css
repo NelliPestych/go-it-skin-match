@@ -1999,10 +1999,7 @@ select {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Centred guidance text above the oval. Tight against the top of
-   the stage so it visually pairs with the side chevron arrow at the
-   same vertical level (see `.sc-arrow`), matching LRP SpotScan.
-   Kept above 4 % so the headline never bleeds onto the oval rim. */
+/* Guidance text above the oval — pairs with `.sc-arrow` at same vertical level. */
 .sc-guidance {
   position: absolute;
   top: 1%;
@@ -2244,13 +2241,9 @@ select {
 
 .sc-arrow {
   position: absolute;
-  /* Sits level with `.sc-guidance` (top 2.5 %) so the chevron and
-     the headline read as one row, à la LRP SpotScan. `top: 2.5 %`
-     aligns the arrow box top with the headline. The headline on
-     side poses ("Turn your face left/right") wraps to two lines at
-     15 px / line-height 1.2 → ~36 px tall; we offset the 40 px
-     arrow box by -2 px so its centre lands at the centre of that
-     two-line block instead of on the first line.  translateY would
+  /* Aligned with `.sc-guidance` so chevron + headline read as one row.
+     Side-pose headline wraps to 2 lines (~36px); offset by -2px so
+     the 40px arrow box centres on the block, not the first line.
      conflict with the bounce keyframe (which uses translateX +
      opacity), so we use margin instead. */
   top: 2.5%;
