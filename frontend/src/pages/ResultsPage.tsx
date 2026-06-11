@@ -14,7 +14,7 @@ import {
   recommendationTagline,
 } from "../lib/aiReport";
 import { api, isUnauthorized } from "../services/api";
-import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
+import type { AIMetricsView, BeautyPlan, FusionDecision, RecommendationItem, SkinFeatures } from "../types";
 
 type ResultsTab = "targets" | "picks" | "routine" | "profile" | "insights";
 type RoutinePeriod = "morning" | "evening";
@@ -74,6 +74,7 @@ export default function ResultsPage() {
   const [plan, setPlan] = useState<BeautyPlan | null>(null);
   const [features, setFeatures] = useState<SkinFeatures | null>(null);
   const [aiMetrics, setAiMetrics] = useState<AIMetricsView | null>(null);
+  const [fusion, setFusion] = useState<FusionDecision | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [tab, setTab] = useState<ResultsTab>("profile");
@@ -134,6 +135,7 @@ export default function ResultsPage() {
         if (cancelled) return;
         setFeatures(d.features);
         setAiMetrics(d.ai_metrics ?? null);
+        setFusion(d.fusion ?? null);
         setRecos(d.recommendations);
         setPlan(d.plan ?? null);
         setCreatedAt(d.created_at ?? null);
@@ -558,6 +560,24 @@ export default function ResultsPage() {
           aria-labelledby={tabId("profile")}
           hidden={tab !== "profile"}
         >
+          {fusion && fusion.resolution === "low_confidence_quiz_override" && fusion.quiz_skin_type && (
+            <div className="fusion-banner" role="status">
+              <span className="fusion-banner-dot" aria-hidden="true">ⓘ</span>
+              <span>
+                Через нижчу впевненість AI-аналізу тип шкіри визначено за вашою
+                відповіддю у квизі — <strong>{fusion.quiz_skin_type}</strong>.
+              </span>
+            </div>
+          )}
+          {fusion && fusion.resolution === "low_confidence_default" && (
+            <div className="fusion-banner" role="status">
+              <span className="fusion-banner-dot" aria-hidden="true">ⓘ</span>
+              <span>
+                Через нижчу впевненість AI-аналізу та відсутність вибраного типу шкіри в квизі
+                використано нейтральне значення для побудови рекомендацій.
+              </span>
+            </div>
+          )}
           <div className="profile-grid" data-testid="profile-grid">
             {visibleProfile.map((row) => (
               <div

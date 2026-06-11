@@ -133,6 +133,20 @@ export interface AIMetricsView {
   analyzed_at?: string | null;
 }
 
+export type FusionResolution =
+  | "ai_high_confidence"
+  | "ai_medium_confidence"
+  | "low_confidence_quiz_override"
+  | "low_confidence_default";
+
+export interface FusionDecision {
+  effective_skin_type: string;
+  resolution: FusionResolution;
+  ai_skin_type: string;
+  quiz_skin_type?: string | null;
+  confidence_score: number;
+}
+
 export interface AnalysisDetails {
   analysis_id: number;
   created_at: string;
@@ -141,6 +155,7 @@ export interface AnalysisDetails {
   quiz_answers?: Record<string, unknown> | null;
   recommendations: RecommendationItem[];
   plan?: BeautyPlan | null;
+  fusion?: FusionDecision | null;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────

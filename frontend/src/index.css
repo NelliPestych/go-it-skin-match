@@ -1220,6 +1220,34 @@ select {
    Results screen — skin profile metric cards
    ========================================================= */
 
+/* Fusion banner — shown when scoring used quiz over AI. */
+.fusion-banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: rgba(255, 246, 229, 0.85);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-60);
+}
+
+.fusion-banner strong {
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.fusion-banner-dot {
+  font-weight: 700;
+  color: var(--gold);
+  font-size: 14px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
 /* Skin profile grid — 2-col compact rows; minmax(0,1fr) avoids uneven widths. */
 .profile-grid {
   display: grid;

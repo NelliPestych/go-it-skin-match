@@ -1,5 +1,13 @@
 from app.repositories.product_repo import ProductRepository
-from app.services.recommendation_service import RecommendationEngine
+from app.services.recommendation_service import (
+    AI_CONF_HIGH,
+    AI_CONF_LOW,
+    AI_WEIGHT_CEIL,
+    AI_WEIGHT_FLOOR,
+    RecommendationEngine,
+    ai_weight,
+    resolve_skin_type,
+)
 
 
 def test_engine_filters_by_skin_type(db_session):
@@ -231,3 +239,132 @@ def test_legacy_quiz_payload_still_scores_identically_to_pre_step4(db_session):
                 "Supports daily sun protection",
                 "Helps protect skin from pollution",
             )
+
+
+# ── Confidence-aware fusion of AI + quiz signals ─────────────────────
+
+
+def test_ai_weight_clamps_and_interpolates():
+    assert ai_weight(0.99) == AI_WEIGHT_CEIL
+    assert ai_weight(AI_CONF_HIGH) == AI_WEIGHT_CEIL
+    assert ai_weight(0.00) == AI_WEIGHT_FLOOR
+    assert ai_weight(AI_CONF_LOW) == AI_WEIGHT_FLOOR
+    mid = ai_weight((AI_CONF_LOW + AI_CONF_HIGH) / 2)
+    assert AI_WEIGHT_FLOOR < mid < AI_WEIGHT_CEIL
+    assert mid == round((AI_WEIGHT_FLOOR + AI_WEIGHT_CEIL) / 2, 6) or abs(
+        mid - (AI_WEIGHT_FLOOR + AI_WEIGHT_CEIL) / 2
+    ) < 1e-6
+
+
+def test_resolve_skin_type_high_confidence_uses_ai():
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "oily", "confidence_score": 0.92},
+        quiz={"self_reported_skin_type": "dry"},
+    )
+    assert skin_type == "oily"
+    assert resolution == "ai_high_confidence"
+
+
+def test_resolve_skin_type_low_confidence_with_clear_quiz_uses_quiz():
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "oily", "confidence_score": 0.32},
+        quiz={"self_reported_skin_type": "dry"},
+    )
+    assert skin_type == "dry"
+    assert resolution == "low_confidence_quiz_override"
+
+
+def test_resolve_skin_type_low_confidence_with_not_sure_falls_back_to_normal():
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "oily", "confidence_score": 0.30},
+        quiz={"self_reported_skin_type": "not_sure"},
+    )
+    assert skin_type == "normal"
+    assert resolution == "low_confidence_default"
+
+
+def test_resolve_skin_type_low_confidence_with_no_quiz_falls_back_to_normal():
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "oily", "confidence_score": 0.20},
+        quiz={},
+    )
+    assert skin_type == "normal"
+    assert resolution == "low_confidence_default"
+
+
+def test_resolve_skin_type_medium_confidence_uses_ai_with_marker():
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "combination", "confidence_score": 0.60},
+        quiz={"self_reported_skin_type": "dry"},
+    )
+    assert skin_type == "combination"
+    assert resolution == "ai_medium_confidence"
+
+
+def test_resolve_skin_type_garbage_confidence_defaults_to_medium():
+    """Non-numeric confidence must not crash; defaults to 0.7."""
+    skin_type, resolution = resolve_skin_type(
+        features={"skin_type": "oily", "confidence_score": "nope"},
+        quiz={"self_reported_skin_type": "dry"},
+    )
+    assert skin_type == "oily"
+    assert resolution == "ai_medium_confidence"
+
+
+def test_score_uses_quiz_skin_type_when_ai_low_confidence(db_session):
+    """Low AI confidence + dry in quiz → products filtered by dry, not AI's oily."""
+    products = ProductRepository(db_session).list()
+    engine = RecommendationEngine(products)
+
+    features = {
+        "skin_type": "oily",
+        "redness_level": "low",
+        "hydration_level": "medium",
+        "pigmentation_level": "low",
+        "pores_score": 0.2,
+        "confidence_score": 0.30,
+    }
+    quiz = {
+        "self_reported_skin_type": "dry",
+        "concerns": [],
+        "sensitivity": False,
+    }
+    scored = engine.score(features, quiz, top_k=20)
+    assert scored, "engine should still return recommendations on low-confidence AI"
+    for item in scored:
+        allowed = {s.lower() for s in (item["product"].skin_types or [])}
+        assert (not allowed) or "all" in allowed or "dry" in allowed, (
+            f"product {item['product'].id} not suitable for dry skin: {allowed}"
+        )
+
+
+def test_ai_concern_signals_dampened_at_low_confidence(db_session):
+    """Same redness=high under conf=0.95 vs conf=0.30 → low-conf score is strictly lower."""
+    products = ProductRepository(db_session).list()
+    engine = RecommendationEngine(products)
+
+    high_conf_features = {
+        "skin_type": "normal",
+        "redness_level": "high",
+        "hydration_level": "medium",
+        "pigmentation_level": "low",
+        "pores_score": 0.2,
+        "confidence_score": 0.95,
+    }
+    low_conf_features = dict(high_conf_features, confidence_score=0.30)
+    neutral_quiz = {"concerns": [], "sensitivity": False}
+
+    high = {item["product_id"]: item for item in engine.score(high_conf_features, neutral_quiz, top_k=20)}
+    low = {item["product_id"]: item for item in engine.score(low_conf_features, neutral_quiz, top_k=20)}
+
+    # At least one redness-tagged product must exist in the catalogue.
+    redness_products = [
+        p for p in products if "redness" in {c.lower() for c in (p.concerns or [])}
+    ]
+    assert redness_products, "seed catalogue must include redness-tagged products"
+
+    dampened = 0
+    for p in redness_products:
+        if p.id in high and p.id in low and low[p.id]["score"] < high[p.id]["score"]:
+            dampened += 1
+    assert dampened > 0, "low-confidence AI must dampen at least one redness signal"

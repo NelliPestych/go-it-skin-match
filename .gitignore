@@ -175,3 +175,9 @@ frontend/.env
 
 # Design references (Figma exports — kept locally, not shipped)
 design/
+
+# Thesis figures and source files — local artefacts, not part of the app
+docs/thesis/
+
+# Runtime upload artefacts at the project root
+/uploads/
