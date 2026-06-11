@@ -42,6 +42,79 @@ ACNE_TAG_CONCERNS = ("oiliness", "pores")
 ANTIOXIDANT_TAG_CONCERN = "pigmentation"
 SUNSCREEN_CATEGORY = "sunscreen"
 
+# Confidence-aware fusion of AI vs quiz signals.
+#   High confidence  → trust AI (current behaviour).
+#   Medium           → AI dominates but quiz-implied concerns get full weight.
+#   Low              → AI is heavily down-weighted; quiz overrides skin_type.
+AI_CONF_HIGH = 0.75
+AI_CONF_LOW = 0.50
+AI_WEIGHT_FLOOR = 0.3
+AI_WEIGHT_CEIL = 1.0
+_VALID_QUIZ_SKIN_TYPES = {
+    SkinType.DRY.value,
+    SkinType.OILY.value,
+    SkinType.COMBINATION.value,
+    SkinType.NORMAL.value,
+}
+
+
+def ai_weight(confidence: float) -> float:
+    """Linear ramp from AI_WEIGHT_FLOOR (at AI_CONF_LOW) to AI_WEIGHT_CEIL (at AI_CONF_HIGH).
+
+    Below AI_CONF_LOW the multiplier clamps to AI_WEIGHT_FLOOR — AI signals
+    are still acknowledged but cannot dominate a clear quiz signal.  Above
+    AI_CONF_HIGH the multiplier saturates at 1.0 so a confident AI keeps its
+    original strength.  In the [LOW, HIGH] window the multiplier interpolates
+    linearly, so a borderline-confident reading degrades smoothly.
+    """
+    if confidence >= AI_CONF_HIGH:
+        return AI_WEIGHT_CEIL
+    if confidence <= AI_CONF_LOW:
+        return AI_WEIGHT_FLOOR
+    span = AI_CONF_HIGH - AI_CONF_LOW
+    return AI_WEIGHT_FLOOR + (AI_WEIGHT_CEIL - AI_WEIGHT_FLOOR) * (
+        (confidence - AI_CONF_LOW) / span
+    )
+
+
+def resolve_skin_type(
+    features: Dict[str, Any],
+    quiz: Dict[str, Any],
+) -> Tuple[str, str]:
+    """Pick the effective skin_type, weighing AI confidence vs the quiz answer.
+
+    Returns ``(skin_type, resolution)``.  The resolution tag is one of:
+
+    * ``"ai_high_confidence"`` — AI ≥ 0.75; AI's reading wins unconditionally.
+    * ``"ai_medium_confidence"`` — AI in [0.50, 0.75); AI wins but the result
+      is annotated so the UI can surface a "moderate confidence" hint.
+    * ``"low_confidence_quiz_override"`` — AI < 0.50 AND the quiz carries an
+      unambiguous self-reported type ∈ {dry, oily, combination, normal};
+      the quiz answer overrides AI's verdict.
+    * ``"low_confidence_default"`` — AI < 0.50 AND the quiz is empty or
+      "not_sure"; we fall back to ``NORMAL`` as the safest neutral default.
+    """
+    ai_type = features.get("skin_type", SkinType.NORMAL.value)
+    try:
+        ai_conf = float(features.get("confidence_score", 0.7))
+    except (TypeError, ValueError):
+        ai_conf = 0.7
+
+    quiz_type_raw = quiz.get("self_reported_skin_type")
+    quiz_type = (
+        quiz_type_raw
+        if isinstance(quiz_type_raw, str) and quiz_type_raw in _VALID_QUIZ_SKIN_TYPES
+        else None
+    )
+
+    if ai_conf >= AI_CONF_HIGH:
+        return ai_type, "ai_high_confidence"
+    if ai_conf < AI_CONF_LOW:
+        if quiz_type is not None:
+            return quiz_type, "low_confidence_quiz_override"
+        return SkinType.NORMAL.value, "low_confidence_default"
+    return ai_type, "ai_medium_confidence"
+
 
 def _level_to_weight(level: str) -> float:
     return {Level.LOW.value: 0.3, Level.MEDIUM.value: 0.6, Level.HIGH.value: 1.0}.get(level, 0.5)
@@ -83,7 +156,15 @@ class RecommendationEngine:
         quiz: Dict[str, Any],
         top_k: int = 8,
     ) -> List[Dict[str, Any]]:
-        skin_type = features.get("skin_type", SkinType.NORMAL.value)
+        # Confidence-aware fusion: skin_type may come from AI or quiz,
+        # AI-implied concern weights are scaled by AI confidence.
+        skin_type, _resolution = resolve_skin_type(features, quiz)
+        try:
+            confidence = float(features.get("confidence_score", 0.7))
+        except (TypeError, ValueError):
+            confidence = 0.7
+        ai_mult = ai_weight(confidence)
+
         sensitivity = bool(quiz.get("sensitivity"))
         user_concerns: List[str] = list(quiz.get("concerns") or [])
         budget_cap = _budget_to_max_price(quiz.get("budget"))
@@ -93,9 +174,13 @@ class RecommendationEngine:
         boost_sunscreen = quiz.get("sunscreen_usage") == SUNSCREEN_ACTIVE_VALUE
         boost_pollution = quiz.get("daily_environment") == POLLUTION_ACTIVE_VALUE
 
+        # Quiz concerns get a fixed 0.7 weight (user knows their skin).
+        # AI-implied concerns are scaled by ai_mult so a low-confidence AI
+        # cannot dominate an unambiguous quiz answer.
         weights: Dict[str, float] = {c: 0.7 for c in user_concerns}
         for concern, w in _features_implied_concerns(features):
-            weights[concern] = max(weights.get(concern, 0.0), w)
+            weighted = w * ai_mult
+            weights[concern] = max(weights.get(concern, 0.0), weighted)
         if sensitivity:
             weights[Concern.SENSITIVITY.value] = 1.0
 

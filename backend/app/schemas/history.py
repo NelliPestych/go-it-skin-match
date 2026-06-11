@@ -22,20 +22,23 @@ class AnalysisHistoryItem(BaseModel):
     top_products: List[str]
 
 
-class AnalysisDetails(BaseModel):
-    """Full snapshot of one analysis — features + quiz + recos + plan.
+class FusionDecision(BaseModel):
+    """How the scoring engine fused AI vs quiz signals for this analysis.
 
-    Quiz, recommendations and plan are nullable because a scan may exist
-    without those steps (e.g. an upload abandoned mid-flow). The history
-    UI handles each section independently.
-
-    `ai_metrics` is a new sidecar block that surfaces extended provider
-    output (`provider`, `oiliness`, `acne`, `fine_lines`, `texture`,
-    `recommendation_signals`).  It's `Optional` so old scans (which
-    never had a provider stamp) still render, and the legacy `features`
-    block is unchanged so the existing frontend keeps working without
-    any redesign.
+    Used by the UI to show a transparent banner when the user-quiz answer
+    overrode a low-confidence AI verdict — see
+    ``recommendation_service.resolve_skin_type``.
     """
+
+    effective_skin_type: str
+    resolution: str  # ai_high_confidence | ai_medium_confidence | low_confidence_quiz_override | low_confidence_default
+    ai_skin_type: str
+    quiz_skin_type: Optional[str] = None
+    confidence_score: float
+
+
+class AnalysisDetails(BaseModel):
+    """Full snapshot of one analysis — features + quiz + recos + plan."""
 
     analysis_id: int
     created_at: datetime
@@ -44,3 +47,4 @@ class AnalysisDetails(BaseModel):
     quiz_answers: Optional[dict] = None
     recommendations: List[RecommendationItem]
     plan: Optional[BeautyPlan] = None
+    fusion: Optional[FusionDecision] = None
