@@ -23,15 +23,11 @@ class AnalysisHistoryItem(BaseModel):
 
 
 class FusionDecision(BaseModel):
-    """How the scoring engine fused AI vs quiz signals for this analysis.
-
-    Used by the UI to show a transparent banner when the user-quiz answer
-    overrode a low-confidence AI verdict — see
-    ``recommendation_service.resolve_skin_type``.
-    """
+    """How scoring fused AI vs quiz signals; drives the UI transparency banner."""
 
     effective_skin_type: str
-    resolution: str  # ai_high_confidence | ai_medium_confidence | low_confidence_quiz_override | low_confidence_default
+    # ai_high_confidence | ai_medium_confidence | low_confidence_quiz_override | low_confidence_default
+    resolution: str
     ai_skin_type: str
     quiz_skin_type: Optional[str] = None
     confidence_score: float

@@ -1220,7 +1220,7 @@ select {
    Results screen — skin profile metric cards
    ========================================================= */
 
-/* Fusion banner — transparent note when scoring used quiz instead of AI. */
+/* Fusion banner — shown when scoring used quiz over AI. */
 .fusion-banner {
   display: flex;
   gap: 10px;

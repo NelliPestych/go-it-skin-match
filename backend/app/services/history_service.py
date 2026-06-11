@@ -88,7 +88,6 @@ class HistoryService:
         features_json: Optional[dict],
         quiz_answers: Optional[dict],
     ) -> Optional[FusionDecision]:
-        """Recompute the fusion decision so the UI can show a transparent banner."""
         if not features_json:
             return None
         features = features_json or {}

@@ -133,7 +133,6 @@ export interface AIMetricsView {
   analyzed_at?: string | null;
 }
 
-/** How the scoring engine fused AI vs quiz signals (returned by /details). */
 export type FusionResolution =
   | "ai_high_confidence"
   | "ai_medium_confidence"

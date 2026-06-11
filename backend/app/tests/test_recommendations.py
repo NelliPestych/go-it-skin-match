@@ -241,11 +241,10 @@ def test_legacy_quiz_payload_still_scores_identically_to_pre_step4(db_session):
             )
 
 
-# Confidence-aware fusion of AI + quiz signals.
+# ── Confidence-aware fusion of AI + quiz signals ─────────────────────
 
 
 def test_ai_weight_clamps_and_interpolates():
-    """ai_weight: AI signal multiplier vs confidence."""
     assert ai_weight(0.99) == AI_WEIGHT_CEIL
     assert ai_weight(AI_CONF_HIGH) == AI_WEIGHT_CEIL
     assert ai_weight(0.00) == AI_WEIGHT_FLOOR
@@ -258,7 +257,6 @@ def test_ai_weight_clamps_and_interpolates():
 
 
 def test_resolve_skin_type_high_confidence_uses_ai():
-    """confidence ≥ 0.75 → AI's skin_type wins unconditionally."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "oily", "confidence_score": 0.92},
         quiz={"self_reported_skin_type": "dry"},
@@ -268,7 +266,6 @@ def test_resolve_skin_type_high_confidence_uses_ai():
 
 
 def test_resolve_skin_type_low_confidence_with_clear_quiz_uses_quiz():
-    """confidence < 0.50 + a clear quiz answer → quiz wins."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "oily", "confidence_score": 0.32},
         quiz={"self_reported_skin_type": "dry"},
@@ -278,7 +275,6 @@ def test_resolve_skin_type_low_confidence_with_clear_quiz_uses_quiz():
 
 
 def test_resolve_skin_type_low_confidence_with_not_sure_falls_back_to_normal():
-    """confidence < 0.50 + quiz says "not_sure" → safe NORMAL default."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "oily", "confidence_score": 0.30},
         quiz={"self_reported_skin_type": "not_sure"},
@@ -288,7 +284,6 @@ def test_resolve_skin_type_low_confidence_with_not_sure_falls_back_to_normal():
 
 
 def test_resolve_skin_type_low_confidence_with_no_quiz_falls_back_to_normal():
-    """confidence < 0.50 + no quiz answer at all → safe NORMAL default."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "oily", "confidence_score": 0.20},
         quiz={},
@@ -298,7 +293,6 @@ def test_resolve_skin_type_low_confidence_with_no_quiz_falls_back_to_normal():
 
 
 def test_resolve_skin_type_medium_confidence_uses_ai_with_marker():
-    """0.50 ≤ confidence < 0.75 → AI wins but flagged as medium-confidence."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "combination", "confidence_score": 0.60},
         quiz={"self_reported_skin_type": "dry"},
@@ -308,7 +302,7 @@ def test_resolve_skin_type_medium_confidence_uses_ai_with_marker():
 
 
 def test_resolve_skin_type_garbage_confidence_defaults_to_medium():
-    """A garbage confidence value must not crash; defaults to 0.7 (medium)."""
+    """Non-numeric confidence must not crash; defaults to 0.7."""
     skin_type, resolution = resolve_skin_type(
         features={"skin_type": "oily", "confidence_score": "nope"},
         quiz={"self_reported_skin_type": "dry"},
@@ -318,11 +312,10 @@ def test_resolve_skin_type_garbage_confidence_defaults_to_medium():
 
 
 def test_score_uses_quiz_skin_type_when_ai_low_confidence(db_session):
-    """End-to-end: low AI confidence → recs come from quiz skin_type, not AI's."""
+    """Low AI confidence + dry in quiz → products filtered by dry, not AI's oily."""
     products = ProductRepository(db_session).list()
     engine = RecommendationEngine(products)
 
-    # AI claims oily with low confidence; user explicitly said dry in the quiz.
     features = {
         "skin_type": "oily",
         "redness_level": "low",
@@ -338,8 +331,6 @@ def test_score_uses_quiz_skin_type_when_ai_low_confidence(db_session):
     }
     scored = engine.score(features, quiz, top_k=20)
     assert scored, "engine should still return recommendations on low-confidence AI"
-    # Every survivor must be compatible with DRY skin (the quiz's answer),
-    # not with OILY (what AI guessed).
     for item in scored:
         allowed = {s.lower() for s in (item["product"].skin_types or [])}
         assert (not allowed) or "all" in allowed or "dry" in allowed, (
@@ -348,13 +339,7 @@ def test_score_uses_quiz_skin_type_when_ai_low_confidence(db_session):
 
 
 def test_ai_concern_signals_dampened_at_low_confidence(db_session):
-    """A confident AI's redness=high should outweigh quiz; a shaky AI's shouldn't.
-
-    Two engine runs against the same catalogue: one with confidence=0.95
-    (AI strong), one with confidence=0.30 (AI weak), both featuring
-    redness_level=high.  The total score on redness-tagged products must
-    drop in the low-confidence run.
-    """
+    """Same redness=high under conf=0.95 vs conf=0.30 → low-conf score is strictly lower."""
     products = ProductRepository(db_session).list()
     engine = RecommendationEngine(products)
 
@@ -380,10 +365,6 @@ def test_ai_concern_signals_dampened_at_low_confidence(db_session):
 
     dampened = 0
     for p in redness_products:
-        if p.id in high and p.id in low:
-            # Same baseline structure on both runs; the only difference is
-            # the confidence-scaled AI multiplier.  Low-confidence score
-            # must be strictly less for at least one matching product.
-            if low[p.id]["score"] < high[p.id]["score"]:
-                dampened += 1
+        if p.id in high and p.id in low and low[p.id]["score"] < high[p.id]["score"]:
+            dampened += 1
     assert dampened > 0, "low-confidence AI must dampen at least one redness signal"
