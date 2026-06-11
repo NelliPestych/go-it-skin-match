@@ -1415,6 +1415,11 @@ select {
   padding-bottom: 24px;
 }
 
+/* Clip decorative blobs to the screen bounds — prevents tint bleed past the CTA. */
+.history-screen {
+  overflow: hidden;
+}
+
 /* History CTA — sticky (in-flow), with a soft fade gradient above. */
 .history-screen .screen-footer {
   /* Inherits position: sticky; bottom: 0 from base .screen-footer. */
