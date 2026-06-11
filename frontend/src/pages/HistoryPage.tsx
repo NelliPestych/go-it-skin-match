@@ -49,7 +49,6 @@ export default function HistoryPage() {
 
   return (
     <div className="screen relative history-screen" style={{ background: "var(--bg-results)" }}>
-      <div className="blob rose-bottom-left" />
       <div className="blob lavender-top-right" />
 
       <div className="app-header relative">
