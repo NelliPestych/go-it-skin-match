@@ -22,6 +22,23 @@ export function displayProviderLabel(
   return "AI-powered analysis";
 }
 
+/**
+ * Short, reassuring one-liner for the confidence badge — tailored per tier so
+ * nothing reads as a warning. `isAi` falls back to a quiz-only message.
+ */
+export function confidenceExplainer(tier: ConfidenceTier, isAi: boolean): string {
+  if (!isAi) {
+    return "Built from your quiz answers — add a selfie next time for an AI-tuned read.";
+  }
+  if (tier === "High") {
+    return "Your photo was clear, so results lean on the AI's detailed read.";
+  }
+  if (tier === "Medium") {
+    return "We blended the AI's read with your quiz answers for balanced results.";
+  }
+  return "Your photo was trickier to read, so we leaned a bit more on your quiz answers — still fully personalised.";
+}
+
 /** True when oiliness/acne/fine_lines/texture are available. */
 export function hasExtendedMetrics(
   metrics: AIMetricsView | null | undefined,

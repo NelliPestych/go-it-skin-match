@@ -7,6 +7,7 @@ import {
   buildFocusAreas,
   buildInsights,
   buildSkinProfile,
+  confidenceExplainer,
   confidenceLabel,
   DEFAULT_PROFILE_METRIC_COUNT,
   displayProviderLabel,
@@ -14,7 +15,7 @@ import {
   recommendationTagline,
 } from "../lib/aiReport";
 import { api, isUnauthorized } from "../services/api";
-import type { AIMetricsView, BeautyPlan, FusionDecision, RecommendationItem, SkinFeatures } from "../types";
+import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
 
 type ResultsTab = "targets" | "picks" | "routine" | "profile" | "insights";
 type RoutinePeriod = "morning" | "evening";
@@ -74,7 +75,6 @@ export default function ResultsPage() {
   const [plan, setPlan] = useState<BeautyPlan | null>(null);
   const [features, setFeatures] = useState<SkinFeatures | null>(null);
   const [aiMetrics, setAiMetrics] = useState<AIMetricsView | null>(null);
-  const [fusion, setFusion] = useState<FusionDecision | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [tab, setTab] = useState<ResultsTab>("profile");
@@ -84,6 +84,8 @@ export default function ResultsPage() {
   const [metersIn, setMetersIn] = useState(false);
   // Saved-toast fires once per analysisId; persisted in localStorage.
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [confidenceInfoOpen, setConfidenceInfoOpen] = useState(false);
+  const confidenceInfoRef = useRef<HTMLSpanElement | null>(null);
 
   // Drag-to-scroll for Picks carousel (mouse/pen only; touch uses native pan).
   const recoRowRef = useRef<HTMLDivElement | null>(null);
@@ -135,7 +137,6 @@ export default function ResultsPage() {
         if (cancelled) return;
         setFeatures(d.features);
         setAiMetrics(d.ai_metrics ?? null);
-        setFusion(d.fusion ?? null);
         setRecos(d.recommendations);
         setPlan(d.plan ?? null);
         setCreatedAt(d.created_at ?? null);
@@ -156,6 +157,25 @@ export default function ResultsPage() {
     const t = requestAnimationFrame(() => setMetersIn(true));
     return () => cancelAnimationFrame(t);
   }, [features]);
+
+  // Dismiss the confidence tooltip on outside click or Escape.
+  useEffect(() => {
+    if (!confidenceInfoOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!confidenceInfoRef.current?.contains(e.target as Node)) {
+        setConfidenceInfoOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfidenceInfoOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [confidenceInfoOpen]);
 
   // Toast only on first-visit-from-/analyzing; strip the flag so refresh doesn't replay.
   useEffect(() => {
@@ -214,6 +234,7 @@ export default function ResultsPage() {
   const tier = confidenceLabel(confidence);
   const score = Math.round(Math.max(0, Math.min(1, confidence)) * 100);
   const source = displayProviderLabel(aiMetrics);
+  const confidenceInfo = confidenceExplainer(tier, source === "AI-powered analysis");
   const recoTagline = recommendationTagline(focusAreas);
   const filteredRecos = activeTarget
     ? recos.filter((item) => matchesTarget(item, activeTarget))
@@ -312,6 +333,23 @@ export default function ResultsPage() {
               <span>Confidence: {tier}</span>
               <span className="results-meta-sep" aria-hidden="true">·</span>
               <span className="results-meta-source">{source}</span>
+              <span className="results-info" ref={confidenceInfoRef}>
+                <button
+                  type="button"
+                  className="results-info-btn"
+                  aria-label="What does this mean?"
+                  aria-expanded={confidenceInfoOpen}
+                  title="Click to learn more"
+                  onClick={() => setConfidenceInfoOpen((v) => !v)}
+                >
+                  ?
+                </button>
+                {confidenceInfoOpen && (
+                  <span className="results-info-pop" role="dialog" aria-label="What this means">
+                    {confidenceInfo}
+                  </span>
+                )}
+              </span>
             </div>
             {scanDate && (
               <span className="results-meta-date">Scanned {scanDate}</span>
@@ -560,24 +598,6 @@ export default function ResultsPage() {
           aria-labelledby={tabId("profile")}
           hidden={tab !== "profile"}
         >
-          {fusion && fusion.resolution === "low_confidence_quiz_override" && fusion.quiz_skin_type && (
-            <div className="fusion-banner" role="status">
-              <span className="fusion-banner-dot" aria-hidden="true">ⓘ</span>
-              <span>
-                Через нижчу впевненість AI-аналізу тип шкіри визначено за вашою
-                відповіддю у квизі — <strong>{fusion.quiz_skin_type}</strong>.
-              </span>
-            </div>
-          )}
-          {fusion && fusion.resolution === "low_confidence_default" && (
-            <div className="fusion-banner" role="status">
-              <span className="fusion-banner-dot" aria-hidden="true">ⓘ</span>
-              <span>
-                Через нижчу впевненість AI-аналізу та відсутність вибраного типу шкіри в квизі
-                використано нейтральне значення для побудови рекомендацій.
-              </span>
-            </div>
-          )}
           <div className="profile-grid" data-testid="profile-grid">
             {visibleProfile.map((row) => (
               <div
