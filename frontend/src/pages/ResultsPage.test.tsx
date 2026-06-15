@@ -94,6 +94,30 @@ describe("<ResultsPage />", () => {
     expect(within(focusChips).getByText("Oil control")).toBeInTheDocument();
   });
 
+  it("reveals the high-confidence explainer when the help button is clicked", async () => {
+    vi.spyOn(api, "details").mockResolvedValue({
+      ...baseDetails,
+      ai_metrics: { provider: "mock_haut", confidence_score: 0.82 },
+    });
+
+    renderResults();
+    await screen.findByText(/AI-powered analysis/i);
+
+    // Tooltip is closed until the "?" affordance is clicked.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const help = screen.getByRole("button", { name: /what does this mean/i });
+    expect(help).toHaveAttribute("title", "Click to learn more");
+
+    fireEvent.click(help);
+    const pop = await screen.findByRole("dialog");
+    // High-confidence copy explains why the AI reading leads.
+    expect(within(pop).getByText(/lean on the AI's detailed read/i)).toBeInTheDocument();
+
+    // Clicking again dismisses it.
+    fireEvent.click(help);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("falls back to Basic analysis when provider is legacy", async () => {
     vi.spyOn(api, "details").mockResolvedValue({
       ...baseDetails,

@@ -1220,34 +1220,6 @@ select {
    Results screen — skin profile metric cards
    ========================================================= */
 
-/* Fusion banner — shown when scoring used quiz over AI. */
-.fusion-banner {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  background: rgba(255, 246, 229, 0.85);
-  border: 1px solid var(--text-10);
-  border-radius: var(--r-md);
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-60);
-}
-
-.fusion-banner strong {
-  color: var(--text);
-  text-transform: capitalize;
-}
-
-.fusion-banner-dot {
-  font-weight: 700;
-  color: var(--gold);
-  font-size: 14px;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
 /* Skin profile grid — 2-col compact rows; minmax(0,1fr) avoids uneven widths. */
 .profile-grid {
   display: grid;
@@ -2387,6 +2359,90 @@ select {
 
 .results-meta-source {
   color: var(--text-50);
+}
+
+/* "?" help affordance + click-to-open confidence tooltip. */
+.results-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.results-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--text-20);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-50);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.results-info-btn:hover,
+.results-info-btn[aria-expanded="true"] {
+  color: var(--text);
+  border-color: var(--text-40);
+  background: var(--bg-results);
+}
+
+.results-info-btn:focus-visible {
+  outline: 2px solid var(--text-30);
+  outline-offset: 2px;
+}
+
+/* Opens upward; right-anchored to the "?" so it never spills off-screen. */
+.results-info-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  /* Nudged right of the button so the "?" clears the rounded corner and the
+     arrow can sit directly under it (see ::before below). */
+  right: -14px;
+  left: auto;
+  z-index: 20;
+  width: max-content;
+  max-width: min(240px, 76vw);
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-md, 14px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-60);
+  text-align: left;
+  animation: results-info-in 0.14s ease;
+}
+
+/* Little arrow pointing down to the "?" button. Sits in the flat part of the
+   bottom edge (clear of the 16px rounded corner) and overlaps 1px to hide the
+   border seam — so there's no gap between bubble and arrow. */
+.results-info-pop::before {
+  content: "";
+  position: absolute;
+  top: calc(100% - 1px);
+  right: 16px;
+  border: 6px solid transparent;
+  border-top-color: var(--surface);
+}
+
+@keyframes results-info-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Targets tab — numbered priority list with large touch targets. */
