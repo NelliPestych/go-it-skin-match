@@ -10,6 +10,7 @@ import AnalyzingPage from "./pages/AnalyzingPage";
 import ResultsPage from "./pages/ResultsPage";
 import HistoryPage from "./pages/HistoryPage";
 import RequireAuth from "./components/RequireAuth";
+import DesktopGate from "./components/DesktopGate";
 import { AuthProvider } from "./state/auth";
 import { FlowProvider } from "./state/flow";
 
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <AuthProvider>
       <FlowProvider>
+        <DesktopGate>
         <ScrollToTop />
         <div className="mobile-frame">
           <Routes>
@@ -70,6 +72,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
+        </DesktopGate>
       </FlowProvider>
     </AuthProvider>
   );
