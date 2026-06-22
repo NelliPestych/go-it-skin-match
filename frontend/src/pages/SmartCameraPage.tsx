@@ -43,6 +43,7 @@ import PillButton from "../components/PillButton";
 import { useFaceMesh } from "../hooks/useFaceMesh";
 import { useLightingValidation } from "../hooks/useLightingValidation";
 import { useSmartCaptureFlow } from "../hooks/useSmartCaptureFlow";
+import { useVideoSettled } from "../hooks/useVideoSettled";
 import { useWebcam } from "../hooks/useWebcam";
 import { evaluateGates, evaluateGuidance } from "../lib/cameraGuidance";
 import { useFlow } from "../state/flow";
@@ -99,6 +100,8 @@ export default function SmartCameraPage() {
   };
 
   const cameraReady = camStatus.kind === "ready";
+  // Hold the reveal/capture until iOS finishes ramping the capture format (no zoom jump).
+  const videoSettled = useVideoSettled(videoEl, cameraReady);
 
   // Re-attach the live MediaStream whenever the <video> element
   // (re-)mounts. Required because `Take photos again` flips
@@ -130,7 +133,7 @@ export default function SmartCameraPage() {
   // (no other state changes upstream) the hook would read `false`
   // forever and the countdown would never start.
   const [passes, setPasses] = useState(false);
-  const captureEnabled = cameraReady && !face.error;
+  const captureEnabled = videoSettled && !face.error;
   const session = useSmartCaptureFlow(videoEl, passes, captureEnabled);
 
   const gates = evaluateGates(face, lighting, session.pose);
@@ -248,7 +251,7 @@ export default function SmartCameraPage() {
   // ── Active capture ─────────────────────────────────────────────
   return (
     <div className="sc-screen">
-      {cameraReady && !face.error && (
+      {videoSettled && !face.error && (
         <CameraStatusPanel
           gates={gates}
           pose={session.pose}
@@ -263,9 +266,9 @@ export default function SmartCameraPage() {
           playsInline
           muted
           className="sc-video"
-          data-visible={cameraReady}
+          data-visible={videoSettled}
         />
-        {cameraReady && (
+        {videoSettled && (
           <FaceOvalOverlay
             landmarksRef={face.landmarksRef}
             hasFace={face.hasFace}
@@ -274,7 +277,7 @@ export default function SmartCameraPage() {
           />
         )}
 
-        {camStatus.kind === "starting" && (
+        {(camStatus.kind === "starting" || (cameraReady && !videoSettled)) && (
           <div className="sc-overlay">
             <div className="sc-spinner" />
             <p className="sc-overlay-text">Starting camera…</p>
@@ -296,7 +299,7 @@ export default function SmartCameraPage() {
           </div>
         )}
 
-        {cameraReady && !face.error && (
+        {videoSettled && !face.error && (
           <>
             <GuidanceText report={report} hint={POSE_HINT[session.pose]} />
             <CountdownOverlay digit={session.countdownDigit} />
@@ -311,7 +314,7 @@ export default function SmartCameraPage() {
         {session.status === "flash" && <div className="sc-flash" />}
       </div>
 
-      {cameraReady && !face.error && (
+      {videoSettled && !face.error && (
         <CaptureProgress pose={session.pose} images={session.images} />
       )}
 
