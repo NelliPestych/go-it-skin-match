@@ -1,21 +1,12 @@
 import { useEffect, useState } from "react";
 
 /**
- * Reports `true` once the camera preview has stabilised.
- *
- * iOS (notably iPhone Pro models) ramps the capture format shortly after
- * `getUserMedia` resolves: the preview visibly jumps from a zoomed-in /
- * still-focusing frame to the final field of view. We watch the `<video>`
- * for `playing` + dimension `resize` events and only report "settled" once
- * the resolution has held steady for STABLE_MS, with a MAX_WAIT_MS hard
- * fallback so we never get stuck hiding the preview.
- *
- * Callers gate the visible reveal (and capture) on this, so the user sees a
- * spinner during the ramp and then a clean, correctly-framed preview — never
- * the zoom jump, and never a captured frame from the un-settled state.
+ * True once the camera preview has stabilised. iOS ramps the capture format
+ * after getUserMedia (preview jumps from zoomed-in to the final FOV), so we
+ * hold the reveal until the resolution holds steady — masking the jump.
  */
-const STABLE_MS = 600; // dimensions must hold steady this long after playback
-const MAX_WAIT_MS = 2500; // absolute cap — reveal even if events never quiesce
+const STABLE_MS = 600; // resolution must hold steady this long after playback
+const MAX_WAIT_MS = 2500; // hard cap so we never get stuck hiding the preview
 
 export function useVideoSettled(
   video: HTMLVideoElement | null,
@@ -41,10 +32,9 @@ export function useVideoSettled(
       setSettled(true);
     };
 
-    // Absolute fallback — reveal even if `playing`/`resize` never quiesce.
     const capTimer = setTimeout(finish, MAX_WAIT_MS);
 
-    // Restart the "steady" window; each format ramp (resize) pushes it out.
+    // Each format ramp (resize) restarts the steady window.
     const armStable = () => {
       if (done || !playingSeen || video.videoWidth === 0) return;
       if (stableTimer) clearTimeout(stableTimer);
@@ -61,7 +51,7 @@ export function useVideoSettled(
     video.addEventListener("resize", onResize);
     video.addEventListener("loadedmetadata", onResize);
 
-    // Already playing by the time we attach (e.g. re-mount on retake).
+    // Already playing on attach (e.g. re-mount on retake).
     if (!video.paused && video.videoWidth > 0) {
       playingSeen = true;
       armStable();

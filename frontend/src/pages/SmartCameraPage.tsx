@@ -100,9 +100,7 @@ export default function SmartCameraPage() {
   };
 
   const cameraReady = camStatus.kind === "ready";
-  // iOS ramps the capture format after the stream starts (preview jumps from
-  // zoomed-in to the final FOV). Hold the visible reveal — and capture — until
-  // the preview has stabilised, so the user never sees that jump.
+  // Hold the reveal/capture until iOS finishes ramping the capture format (no zoom jump).
   const videoSettled = useVideoSettled(videoEl, cameraReady);
 
   // Re-attach the live MediaStream whenever the <video> element
