@@ -28,7 +28,7 @@ function friendlyAuthError(err: unknown): string {
       ? "Please enter a valid email address."
       : "Please check your details and try again.";
   }
-  if (/valid email/i.test(raw)) return "Please enter a valid email address.";
+  if (/\bvalid email/i.test(raw)) return "Please enter a valid email address.";
   return raw;
 }
 

@@ -1,5 +1,5 @@
 /** Renders one of the 7 config-driven quiz questions at /quiz/:step. */
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import PillButton from "../components/PillButton";
@@ -39,7 +39,12 @@ export default function QuizPage() {
   const question = skinQuizQuestions[step - 1];
 
   const flow = useFlow();
-  const { imageFile, quizAnswers, setQuizAnswer, toggleQuizConcern } = flow;
+  const { imageFile, quizAnswers, setQuizAnswer, toggleQuizConcern, resetQuiz } =
+    flow;
+
+  useLayoutEffect(() => {
+    resetQuiz();
+  }, [resetQuiz]);
 
   // Direct /quiz/* without an image → /capture.
   useEffect(() => {
