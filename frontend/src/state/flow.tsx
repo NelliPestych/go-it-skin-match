@@ -42,6 +42,8 @@ interface FlowState {
   /** No-op — reverse-mapping legacy concerns to UI set would be ambiguous. */
   toggleConcern: (c: Concern) => void;
 
+  /** Clear quiz answers only; keeps the uploaded image and side photos. */
+  resetQuiz: () => void;
   reset: () => void;
 }
 
@@ -77,6 +79,10 @@ export function FlowProvider({ children }: { children: ReactNode }) {
         : [...current, c];
       return { ...prev, concerns: next };
     });
+  }, []);
+
+  const resetQuiz = useCallback(() => {
+    setQuizAnswers(EMPTY_ANSWERS);
   }, []);
 
   const reset = useCallback(() => {
@@ -126,6 +132,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
       setSkinType,
       concerns,
       toggleConcern,
+      resetQuiz,
       reset,
     }),
     [
@@ -139,6 +146,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
       setSkinType,
       concerns,
       toggleConcern,
+      resetQuiz,
       reset,
     ],
   );

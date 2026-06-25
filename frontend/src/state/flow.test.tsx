@@ -133,6 +133,24 @@ describe("FlowProvider — quiz state", () => {
     expect(result.current.skinType).toBe("combination");
   });
 
+  it("resetQuiz() wipes the answers but keeps the uploaded image", () => {
+    const { result } = renderHook(() => useFlow(), { wrapper });
+    act(() => {
+      result.current.setImageFile(fakeFile("front.jpg"));
+      result.current.setQuizAnswer("skin_type", "dry");
+      result.current.toggleQuizConcern("redness");
+    });
+
+    act(() => result.current.resetQuiz());
+
+    // Answers gone — a returning user starts the quiz fresh...
+    expect(result.current.quizAnswers).toEqual({});
+    expect(result.current.skinType).toBeNull();
+    expect(result.current.concerns).toEqual([]);
+    // ...but the photo survives so the analysis flow isn't broken.
+    expect(result.current.imageFile?.name).toBe("front.jpg");
+  });
+
   it("reset() wipes the entire quizAnswers bag", () => {
     const { result } = renderHook(() => useFlow(), { wrapper });
     act(() => {
