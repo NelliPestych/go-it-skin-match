@@ -2,13 +2,14 @@ import { useNavigate } from "react-router-dom";
 
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
+import styles from "./HomePage.module.css";
 
 /** Landing screen — single-viewport on iPhone portrait. */
 export default function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="screen intro-screen">
+    <div className={`screen ${styles["intro-screen"]}`}>
       <div className="app-header">
         <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
           <span
@@ -42,31 +43,31 @@ export default function HomePage() {
 
       <IntroHero />
 
-      <div className="intro-copy">
-        <h1 className="intro-headline">
+      <div className={styles["intro-copy"]}>
+        <h1 className={styles["intro-headline"]}>
           Your skin,
           <br />
-          <span className="intro-headline-em">decoded.</span>
+          <span className={styles["intro-headline-em"]}>decoded.</span>
         </h1>
-        <p className="intro-subhead">
+        <p className={styles["intro-subhead"]}>
           Snap a selfie, answer a few questions – get a routine made for your
           skin.
         </p>
       </div>
 
-      <div className="intro-chips" aria-label="Key benefits">
-        <span className="intro-chip">
-          <span className="intro-chip-icon">⚡</span>AI scan
+      <div className={styles["intro-chips"]} aria-label="Key benefits">
+        <span className={styles["intro-chip"]}>
+          <span className={styles["intro-chip-icon"]}>⚡</span>AI scan
         </span>
-        <span className="intro-chip">
-          <span className="intro-chip-icon">🧴</span>Your routine
+        <span className={styles["intro-chip"]}>
+          <span className={styles["intro-chip-icon"]}>🧴</span>Your routine
         </span>
-        <span className="intro-chip">
-          <span className="intro-chip-icon">🔬</span>Science-backed
+        <span className={styles["intro-chip"]}>
+          <span className={styles["intro-chip-icon"]}>🔬</span>Science-backed
         </span>
       </div>
 
-      <div className="screen-footer intro-footer">
+      <div className={`screen-footer ${styles["intro-footer"]}`}>
         <PillButton
           onClick={() => navigate("/capture")}
           trailingIcon={<span aria-hidden>→</span>}
@@ -81,15 +82,15 @@ export default function HomePage() {
 /** Hero — face-mesh portrait image + bottom fade + animated scan-line. */
 function IntroHero() {
   return (
-    <div className="intro-hero" aria-hidden="true">
+    <div className={styles["intro-hero"]} aria-hidden="true">
       <img
         src="/intro-face-mesh.png"
         alt=""
-        className="intro-hero-image"
+        className={styles["intro-hero-image"]}
         draggable={false}
       />
-      <div className="intro-hero-fade" />
-      <div className="intro-hero-scanline" />
+      <div className={styles["intro-hero-fade"]} />
+      <div className={styles["intro-hero-scanline"]} />
     </div>
   );
 }

@@ -1,0 +1,172 @@
+/* Loading / Analyzing screen — orbiting avatar + animated checklist. */
+
+.analyzing-screen {
+  text-align: center;
+  position: relative;
+}
+
+.analyzing-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px var(--side-margin);
+}
+
+.analyzing-orbit {
+  /* Fluid: orbit shrinks below the original 224px on narrow phones
+     so the two concentric rings (-1 each side via ::before/::after)
+     stay inside the mobile frame at 360px. */
+  width: clamp(172px, 52vw, 200px);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border: 1px solid var(--text);
+  border-radius: var(--r-pill);
+  margin: 24px auto;
+  position: relative;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(48px, 14vw, 64px);
+}
+
+.analyzing-orbit::before,
+.analyzing-orbit::after {
+  content: "";
+  position: absolute;
+  border: 1px solid var(--text);
+  border-radius: var(--r-pill);
+}
+
+.analyzing-orbit::before {
+  inset: calc(-1 * clamp(20px, 6vw, 28px));
+}
+
+.analyzing-orbit::after {
+  inset: calc(-1 * clamp(36px, 12vw, 56px));
+  opacity: 0.4;
+}
+
+.analyzing-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+  animation: scan 2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0%,
+  100% {
+    transform: translateY(-50px);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(50px);
+    opacity: 1;
+  }
+}
+
+.checklist {
+  margin: 24px var(--side-margin);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.checklist .item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.checklist .check {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--success);
+  color: white;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.checklist .check.pending {
+  background: transparent;
+  border: 1px solid var(--text);
+  color: var(--text);
+}
+
+.checklist .check.pending::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.checklist .check.todo {
+  background: transparent;
+  border: 1px solid var(--text);
+  opacity: 0.5;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Short-viewport polish for the analyzing screen. */
+@media (max-height: 760px) {
+  .analyzing-orbit {
+    width: clamp(120px, 38vw, 150px);
+    margin: 12px auto;
+    font-size: clamp(36px, 11vw, 48px);
+  }
+  .analyzing-orbit::before {
+    inset: calc(-1 * clamp(12px, 4vw, 18px));
+  }
+  .analyzing-orbit::after {
+    inset: calc(-1 * clamp(22px, 8vw, 34px));
+  }
+  .analyzing-body {
+    padding-top: 8px;
+  }
+}
+
+@media (max-height: 640px) {
+  .analyzing-orbit {
+    width: clamp(90px, 30vw, 110px);
+    margin: 8px auto;
+    font-size: clamp(28px, 9vw, 36px);
+  }
+  .analyzing-orbit::before {
+    inset: calc(-1 * clamp(8px, 3vw, 12px));
+  }
+  .analyzing-orbit::after {
+    inset: calc(-1 * clamp(16px, 6vw, 22px));
+  }
+  .checklist {
+    margin: 12px var(--side-margin);
+    gap: 8px;
+  }
+  .checklist .item {
+    font-size: 10.5px;
+  }
+}

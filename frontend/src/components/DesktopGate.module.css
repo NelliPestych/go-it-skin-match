@@ -1,0 +1,68 @@
+/* Desktop gate — "open on your phone" + static QR. */
+
+.desktop-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: linear-gradient(160deg, #f1e9ff 0%, #faf9f6 45%, #fde4e4 100%);
+}
+
+.desktop-gate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 36px 36px;
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(60, 32, 50, 0.16);
+}
+
+.desktop-gate-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-50);
+}
+
+.desktop-gate-title {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.desktop-gate-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-60);
+}
+
+.desktop-gate-qr {
+  width: 200px;
+  height: 200px;
+  margin-top: 8px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--text-10);
+  border-radius: 18px;
+}
+
+.desktop-gate-url {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
