@@ -15,6 +15,7 @@ import type {
   QuizQuestion,
   SkinConcern,
 } from "../types/quiz";
+import styles from "./QuizPage.module.css";
 
 /** 1-based step index; safe fallback to 1 on bad input. */
 function parseStep(raw: string | undefined): number {
@@ -157,19 +158,19 @@ function SingleSelectList({
           <button
             key={opt.id}
             type="button"
-            className={"option-card" + (selected ? " selected" : "")}
+            className={`${styles["option-card"]}${selected ? ` ${styles.selected}` : ""}`}
             style={{ background: opt.bg ?? "white" }}
             onClick={() => onSelect(opt.id)}
             aria-pressed={selected}
           >
-            <div className="icon-tile" style={{ background: "rgba(255,255,255,0.5)" }}>
+            <div className={styles["icon-tile"]} style={{ background: "rgba(255,255,255,0.5)" }}>
               <span style={{ fontSize: 22 }}>{opt.icon ?? "•"}</span>
             </div>
-            <div className="body-text">
+            <div className={styles["body-text"]}>
               <h4>{opt.label}</h4>
               {opt.description && <p>{opt.description}</p>}
             </div>
-            <div className="radio">{selected && "✓"}</div>
+            <div className={styles.radio}>{selected && "✓"}</div>
           </button>
         );
       })}
@@ -194,18 +195,18 @@ function MultiSelectList({
           <button
             key={opt.id}
             type="button"
-            className={"option-card option-card--compact" + (selected ? " selected" : "")}
+            className={`${styles["option-card"]} ${styles["option-card--compact"]}${selected ? ` ${styles.selected}` : ""}`}
             style={{ background: opt.bg ?? "white" }}
             onClick={() => onToggle(opt.id)}
             aria-pressed={selected}
           >
-            <div className="icon-tile" style={{ background: "rgba(255,255,255,0.5)" }}>
+            <div className={styles["icon-tile"]} style={{ background: "rgba(255,255,255,0.5)" }}>
               <span style={{ fontSize: 20 }}>{opt.icon ?? "•"}</span>
             </div>
-            <div className="body-text">
+            <div className={styles["body-text"]}>
               <h4>{opt.label}</h4>
             </div>
-            <div className="radio">{selected && "✓"}</div>
+            <div className={styles.radio}>{selected && "✓"}</div>
           </button>
         );
       })}
