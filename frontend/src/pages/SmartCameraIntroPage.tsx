@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { useFlow } from "../state/flow";
+import styles from "./SmartCameraIntroPage.module.css";
 
 const MAX_UPLOAD_MB = 10;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -77,7 +78,7 @@ export default function SmartCameraIntroPage() {
   };
 
   return (
-    <div className="screen intro-instructions-screen">
+    <div className={`screen ${styles["intro-instructions-screen"]}`}>
       {/* Hidden picker triggered by "Upload photo" — the existing
           manual-upload flow with no extra screen. */}
       <input
@@ -116,20 +117,20 @@ export default function SmartCameraIntroPage() {
         </p>
       </div>
 
-      <div className="intro-instructions">
+      <div className={styles["intro-instructions"]}>
         <div className="eyebrow" style={{ marginBottom: 12 }}>
           Before you start
         </div>
         {INSTRUCTIONS.map((item) => (
           <div
-            className="intro-instruction"
+            className={styles["intro-instruction"]}
             key={item.title}
             style={{ ["--icon-bg" as string]: item.color }}
           >
-            <div className="intro-instruction-icon" aria-hidden="true">
+            <div className={styles["intro-instruction-icon"]} aria-hidden="true">
               {item.icon}
             </div>
-            <div className="intro-instruction-text">
+            <div className={styles["intro-instruction-text"]}>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
             </div>
