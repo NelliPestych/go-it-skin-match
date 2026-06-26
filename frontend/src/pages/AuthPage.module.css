@@ -1,0 +1,173 @@
+/* Auth page (Sign Up / Log In) — reuses the landing pastel tokens. */
+
+.auth-screen {
+  background: var(--bg-cream);
+}
+
+.auth-body {
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-headline {
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: clamp(26px, 7vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.4px;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.auth-subhead {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-60);
+  margin: 0 0 24px;
+  max-width: 32ch;
+}
+
+.auth-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--text-10);
+  border-radius: var(--r-pill);
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.auth-tab {
+  background: transparent;
+  border: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  color: var(--text-50);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.auth-tab[data-active="true"] {
+  background: var(--text);
+  color: #fff;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-field > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-60);
+}
+
+.auth-field input {
+  font: inherit;
+  font-size: 15px;
+  padding: 12px 14px;
+  border: 1px solid var(--text-20);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.18s ease;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--text);
+}
+
+/* Password field with reveal toggle. */
+.auth-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.auth-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 46px; /* room for the eye button */
+}
+
+.auth-reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-md);
+  color: var(--text);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.auth-reveal:hover {
+  opacity: 0.7;
+}
+
+.auth-reveal:focus-visible {
+  outline: 2px solid var(--text-30);
+  outline-offset: 1px;
+}
+
+.auth-reveal:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.auth-field-hint {
+  font-size: 11px;
+  color: var(--text-50);
+  margin-top: 2px;
+}
+
+.auth-error {
+  background: rgba(220, 60, 60, 0.08);
+  border: 1px solid rgba(220, 60, 60, 0.25);
+  color: #a32626;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+}
+
+@media (max-height: 640px) {
+  .auth-headline {
+    font-size: clamp(22px, 6vw, 28px);
+    margin-bottom: 8px;
+  }
+  .auth-subhead {
+    margin-bottom: 16px;
+  }
+  .auth-tabs {
+    margin-bottom: 14px;
+  }
+  .auth-form {
+    gap: 10px;
+  }
+  .auth-field input {
+    padding: 10px 12px;
+  }
+}

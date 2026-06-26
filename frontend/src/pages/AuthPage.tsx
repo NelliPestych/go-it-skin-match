@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import IconButton from "../components/IconButton";
 import PillButton from "../components/PillButton";
 import { useAuth } from "../state/auth";
+import styles from "./AuthPage.module.css";
 
 type Mode = "signup" | "login";
 
@@ -105,7 +106,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="screen auth-screen">
+    <div className={`screen ${styles["auth-screen"]}`}>
       <div className="app-header">
         <IconButton onClick={() => navigate("/")} aria-label="Back">
           <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
@@ -122,19 +123,19 @@ export default function AuthPage() {
         <span style={{ width: 44 }} aria-hidden="true" />
       </div>
 
-      <div className="auth-body screen-pad">
-        <h1 className="auth-headline">{COPY[mode].headline}</h1>
-        <p className="auth-subhead">{COPY[mode].subhead}</p>
+      <div className={`${styles["auth-body"]} screen-pad`}>
+        <h1 className={styles["auth-headline"]}>{COPY[mode].headline}</h1>
+        <p className={styles["auth-subhead"]}>{COPY[mode].subhead}</p>
 
         <div
-          className="auth-tabs"
+          className={styles["auth-tabs"]}
           role="tablist"
           aria-label="Sign up or log in"
         >
           <button
             type="button"
             role="tab"
-            className="auth-tab"
+            className={styles["auth-tab"]}
             aria-selected={mode === "signup"}
             data-active={mode === "signup"}
             onClick={() => {
@@ -147,7 +148,7 @@ export default function AuthPage() {
           <button
             type="button"
             role="tab"
-            className="auth-tab"
+            className={styles["auth-tab"]}
             aria-selected={mode === "login"}
             data-active={mode === "login"}
             onClick={() => {
@@ -159,8 +160,8 @@ export default function AuthPage() {
           </button>
         </div>
 
-        <form className="auth-form" onSubmit={onSubmit} noValidate>
-          <label className="auth-field">
+        <form className={styles["auth-form"]} onSubmit={onSubmit} noValidate>
+          <label className={styles["auth-field"]}>
             <span>Email</span>
             <input
               type="email"
@@ -171,9 +172,9 @@ export default function AuthPage() {
               disabled={submitting}
             />
           </label>
-          <label className="auth-field">
+          <label className={styles["auth-field"]}>
             <span>Password</span>
-            <div className="auth-input-wrap">
+            <div className={styles["auth-input-wrap"]}>
               <input
                 type={showPassword ? "text" : "password"}
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
@@ -186,7 +187,7 @@ export default function AuthPage() {
               />
               <button
                 type="button"
-                className="auth-reveal"
+                className={styles["auth-reveal"]}
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
@@ -217,11 +218,11 @@ export default function AuthPage() {
                 )}
               </button>
             </div>
-            <span className="auth-field-hint">At least 8 characters.</span>
+            <span className={styles["auth-field-hint"]}>At least 8 characters.</span>
           </label>
 
           {error && (
-            <div className="auth-error" role="alert">
+            <div className={styles["auth-error"]} role="alert">
               {error}
             </div>
           )}
