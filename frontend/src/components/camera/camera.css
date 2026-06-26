@@ -1,0 +1,548 @@
+/* =========================================================
+   Smart Camera feature — capture surface, overlays, review.
+   Co-located feature stylesheet (sc- prefix; shared across the
+   camera component files). Imported once via SmartCameraPage.
+   ========================================================= */
+
+/* Smart Camera shell — `sc-` prefix scopes the feature. */
+
+.sc-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.sc-header {
+  position: relative;
+  z-index: 5;
+  padding: max(16px, env(safe-area-inset-top)) var(--side-margin) 16px;
+  display: flex;
+  align-items: center;
+}
+
+.sc-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.2s ease;
+}
+
+.sc-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.sc-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+.sc-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Selfie-mirror so the user sees a natural left/right view. */
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sc-video[data-visible="true"] {
+  opacity: 1;
+}
+
+.sc-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 32px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sc-overlay-text {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sc-overlay-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.sc-spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  margin-bottom: 12px;
+  animation: sc-spin 0.9s linear infinite;
+}
+
+@keyframes sc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sc-error-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.sc-error-body {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.sc-retry {
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.sc-retry:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.sc-footer {
+  position: relative;
+  z-index: 5;
+  padding: 16px var(--side-margin) max(24px, env(safe-area-inset-bottom));
+}
+
+.sc-fallback {
+  width: 100%;
+  height: 48px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+/* Short-viewport adaptation for the SmartCamera surface. */
+@media (max-height: 640px) {
+  .sc-status-panel {
+    padding: 8px 14px;
+  }
+  .sc-progress {
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+  .sc-progress-dot {
+    width: 32px;
+    height: 32px;
+  }
+  .sc-progress-dot[data-state="active"] {
+    width: 38px;
+    height: 38px;
+  }
+  .sc-progress-dot svg {
+    width: 16px;
+    height: 16px;
+  }
+  .sc-progress-dot[data-state="active"] svg {
+    width: 18px;
+    height: 18px;
+  }
+  .sc-footer {
+    padding: 10px var(--side-margin) max(16px, env(safe-area-inset-bottom));
+  }
+  .sc-fallback {
+    height: 40px;
+    font-size: 12px;
+  }
+}
+
+.sc-fallback:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+
+
+/* FaceOvalOverlay canvas. */
+
+.sc-face-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  /* Mirror to match the selfie-flipped video. */
+  transform: scaleX(-1);
+}
+
+
+/* Status panel + guidance text. */
+
+/* Top status panel — 3 chips + close button. */
+.sc-status-panel {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+}
+
+.sc-chips {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+
+.sc-chip {
+  flex: 1;
+  /* sc-chips stretches all chips to the tallest sibling; centre each label. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1.5px solid currentColor;
+  /* Two-line wrap on narrow screens (e.g. "Face position"). */
+  line-height: 1.2;
+  transition: color 0.25s ease, background 0.25s ease;
+}
+
+.sc-chip[data-state="ok"] {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.sc-chip[data-state="fail"] {
+  color: #f97373;
+  background: rgba(249, 115, 115, 0.1);
+}
+
+.sc-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Guidance text above the oval — pairs with `.sc-arrow` at same vertical level. */
+.sc-guidance {
+  position: absolute;
+  top: 1%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+  padding: 0 16px;
+  max-width: 92%;
+}
+
+.sc-guidance-text {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0.4px;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+  text-transform: uppercase;
+}
+
+.sc-guidance-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Narrow viewports (≤ 360 px wide) — placed after the base rules so
+   the cascade lets these overrides win. */
+@media (max-width: 360px) {
+  .sc-status-panel {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .sc-chips {
+    gap: 4px;
+  }
+  .sc-chip {
+    font-size: 9px;
+    padding: 8px 4px;
+    letter-spacing: 0.4px;
+  }
+  .sc-guidance {
+    padding: 0;
+    max-width: 100%;
+  }
+  .sc-guidance-text {
+    font-size: 13px;
+    letter-spacing: 0.3px;
+  }
+  .sc-guidance-hint {
+    font-size: 10.5px;
+  }
+}
+
+
+/* Countdown badge + capture progress. */
+
+/* Big 3 → 2 → 1; re-mounted via key={digit} so pop animation replays per tick. */
+.sc-countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: clamp(48px, min(18vw, 14dvh), 88px);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 5;
+  animation: sc-countdown-pop 320ms ease;
+}
+
+@keyframes sc-countdown-pop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Bottom row of 3 pose-silhouette dots. */
+.sc-progress {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 0 max(14px, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.sc-progress-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  transition: width 0.25s ease, height 0.25s ease,
+              border-color 0.25s ease, color 0.25s ease;
+}
+
+.sc-progress-dot svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sc-progress-dot[data-state="active"] {
+  width: 44px;
+  height: 44px;
+  border-color: #fff;
+  color: #fff;
+}
+
+.sc-progress-dot[data-state="active"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sc-progress-dot[data-state="done"] {
+  border-color: #10b981;
+  color: #10b981;
+  background: transparent;
+}
+
+
+/* Flash overlay + final-review screen. */
+
+/* White flash ~220 ms before the canvas grab. */
+.sc-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  z-index: 4;
+  animation: sc-flash 220ms ease-out forwards;
+}
+
+@keyframes sc-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+/* Final review — light cream theme. */
+.sc-review-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-cream);
+}
+
+.sc-review-thumbs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 8px var(--side-margin) 16px;
+}
+
+.sc-review-thumb {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-review-thumb img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: #efe7df;
+  /* Counter-mirror so the thumbnail reads as a natural selfie. */
+  transform: scaleX(-1);
+}
+
+.sc-review-thumb figcaption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-50);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.sc-review-text {
+  padding: 8px var(--side-margin) 24px;
+}
+
+.sc-review-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Playfair Display", serif;
+  font-size: 28px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.sc-review-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--success);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-review-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-60);
+}
+
+
+/* Pose direction arrow — aligned with .sc-guidance via margin (translateY clashes with the bounce keyframe). */
+
+.sc-arrow {
+  position: absolute;
+  top: 2.5%;
+  margin-top: -2px;
+  width: 40px;
+  height: 40px;
+  z-index: 3;
+  pointer-events: none;
+  color: #fff;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-arrow svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sc-arrow-left {
+  left: 8px;
+  animation: sc-arrow-pulse-left 1.2s ease-in-out infinite;
+}
+
+.sc-arrow-right {
+  right: 8px;
+  animation: sc-arrow-pulse-right 1.2s ease-in-out infinite;
+}
+
+@keyframes sc-arrow-pulse-left {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(-12px); }
+}
+
+@keyframes sc-arrow-pulse-right {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(12px); }
+}
