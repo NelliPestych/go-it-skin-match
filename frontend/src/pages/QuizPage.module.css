@@ -1,0 +1,89 @@
+/* Quiz option card. */
+
+.option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--rose);
+  border: 1px solid white;
+  text-align: left;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.option-card:active {
+  transform: scale(0.99);
+}
+
+.option-card.selected {
+  border: 1.5px solid var(--text);
+  box-shadow: var(--shadow-md);
+}
+
+/* Compact variant — used by multi-select where each row carries only
+   icon + label (no description).  Shorter padding + smaller tile keep
+   all 7 concerns on one screen.  Background colour comes from the
+   per-option inline style, same as the single-select variant. */
+.option-card.option-card--compact {
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+
+.option-card.option-card--compact .icon-tile {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+
+.option-card .icon-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.option-card .body-text {
+  flex: 1;
+}
+
+.option-card .body-text h4 {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  margin: 0 0 2px;
+  color: var(--text);
+}
+
+.option-card .body-text p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-50);
+  line-height: 16.5px;
+}
+
+.option-card .radio {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--text);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.option-card.selected .radio {
+  background: var(--text);
+  border-color: var(--text);
+  color: white;
+}
