@@ -6,6 +6,7 @@ import PillButton from "../components/PillButton";
 import { api, isUnauthorized } from "../services/api";
 import { useAuth } from "../state/auth";
 import type { AnalysisHistoryItem } from "../types";
+import styles from "./HistoryPage.module.css";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -48,7 +49,7 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <div className="screen relative history-screen" style={{ background: "var(--bg-results)" }}>
+    <div className={`screen relative ${styles["history-screen"]}`} style={{ background: "var(--bg-results)" }}>
       <div className="blob lavender-top-right" />
 
       <div className="app-header relative">
@@ -91,7 +92,7 @@ export default function HistoryPage() {
         {error && <div className="error">{error}</div>}
 
         {items && items.length === 0 && (
-          <div className="card-empty">
+          <div className={styles["card-empty"]}>
             <p className="muted" style={{ marginBottom: 12 }}>
               No analyses yet. Run your first analysis to see it here.
             </p>
@@ -108,15 +109,15 @@ export default function HistoryPage() {
         )}
 
         {items && items.length > 0 && (
-          <div className="history-list">
+          <div className={styles["history-list"]}>
             {items.map((item) => (
               <Link
                 key={item.analysis_id}
                 to={`/results/${item.analysis_id}`}
-                className="history-card"
+                className={styles["history-card"]}
                 aria-label={`Open analysis ${item.analysis_id}`}
               >
-                <div className="history-card-head">
+                <div className={styles["history-card-head"]}>
                   <div>
                     <div className="caption">{formatDate(item.created_at)}</div>
                     <h3 className="font-serif" style={{ textTransform: "capitalize", margin: "4px 0 0", fontSize: 24 }}>
@@ -128,13 +129,13 @@ export default function HistoryPage() {
                   </span>
                 </div>
                 {item.top_products.length > 0 && (
-                  <ul className="history-card-products">
+                  <ul className={styles["history-card-products"]}>
                     {item.top_products.slice(0, 3).map((name) => (
                       <li key={name}>{name}</li>
                     ))}
                   </ul>
                 )}
-                <div className="history-card-foot">
+                <div className={styles["history-card-foot"]}>
                   <span>View details</span>
                   <span>→</span>
                 </div>
