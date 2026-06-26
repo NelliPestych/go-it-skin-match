@@ -11,6 +11,7 @@ import {
 } from "../services/quizMapping";
 import { useFlow } from "../state/flow";
 import type { QuizPayload } from "../types";
+import styles from "./AnalyzingPage.module.css";
 
 const STEPS = [
   "Profile data synchronized",
@@ -103,7 +104,7 @@ export default function AnalyzingPage() {
   }, [imageFile, additionalImages, quizAnswers, navigate]);
 
   return (
-    <div className="screen relative analyzing-screen">
+    <div className={`screen relative ${styles["analyzing-screen"]}`}>
       <div className="blob rose-bottom-left" />
       <div className="blob lavender-top-right" />
       <div className="blob cream-mid-right" />
@@ -121,7 +122,7 @@ export default function AnalyzingPage() {
         </IconButton>
       </div>
 
-      <div className="relative analyzing-body">
+      <div className={`relative ${styles["analyzing-body"]}`}>
         {error ? (
           <>
             <h1 className="h1" style={{ textAlign: "center", marginBottom: 12 }}>
@@ -145,14 +146,16 @@ export default function AnalyzingPage() {
               Our AI is processing your profile to build your personalized dermatological routine.
             </p>
 
-            <div className="checklist" style={{ width: "100%", maxWidth: 280 }}>
+            <div className={styles.checklist} style={{ width: "100%", maxWidth: 280 }}>
               {STEPS.map((step, idx) => {
                 let state: "done" | "pending" | "todo" = "todo";
                 if (idx < currentStep - 1) state = "done";
                 else if (idx === currentStep - 1) state = "pending";
                 return (
-                  <div className="item" key={step}>
-                    <div className={"check " + state}>{state === "done" ? "✓" : ""}</div>
+                  <div className={styles.item} key={step}>
+                    <div className={[styles.check, styles[state]].filter(Boolean).join(" ")}>
+                      {state === "done" ? "✓" : ""}
+                    </div>
                     <span style={{ opacity: state === "todo" ? 0.5 : 1 }}>
                       {step}
                       {state === "pending" ? "..." : ""}
@@ -162,9 +165,9 @@ export default function AnalyzingPage() {
               })}
             </div>
 
-            <div className="analyzing-orbit" style={{ marginTop: 32 }}>
+            <div className={styles["analyzing-orbit"]} style={{ marginTop: 32 }}>
               <span style={{ fontSize: 56 }}>👤</span>
-              <div className="analyzing-scan-line" />
+              <div className={styles["analyzing-scan-line"]} />
             </div>
           </>
         )}
