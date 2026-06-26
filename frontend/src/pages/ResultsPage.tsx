@@ -16,6 +16,7 @@ import {
 } from "../lib/aiReport";
 import { api, isUnauthorized } from "../services/api";
 import type { AIMetricsView, BeautyPlan, RecommendationItem, SkinFeatures } from "../types";
+import styles from "./ResultsPage.module.css";
 
 type ResultsTab = "targets" | "picks" | "routine" | "profile" | "insights";
 type RoutinePeriod = "morning" | "evening";
@@ -258,25 +259,25 @@ export default function ResultsPage() {
   const ringTarget = RING_C * (1 - score / 100);
 
   return (
-    <div className="screen results-v2" style={{ background: "var(--bg-results)" }}>
+    <div className={`screen ${styles["results-v2"]}`} style={{ background: "var(--bg-results)" }}>
       <div className="app-header app-header--flush">
         <IconButton onClick={() => navigate("/")} aria-label="Back">
           <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
             <path d="M7 1L1 7l6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </IconButton>
-        <span className="results-eyebrow">Skin Report</span>
+        <span className={styles["results-eyebrow"]}>Skin Report</span>
         <IconButton onClick={() => navigate("/history")} aria-label="My results">
           <span style={{ fontSize: 14 }}>≡</span>
         </IconButton>
       </div>
 
-      <main className="results-body">
-        <section className="results-summary">
-          <div className="results-summary-glow" aria-hidden="true" />
-          <div className="results-summary-row">
+      <main className={styles["results-body"]}>
+        <section className={styles["results-summary"]}>
+          <div className={styles["results-summary-glow"]} aria-hidden="true" />
+          <div className={styles["results-summary-row"]}>
             <div
-              className="score-ring"
+              className={styles["score-ring"]}
               data-tier={tier}
               role="img"
               aria-label={`Scan score ${score} out of 100`}
@@ -296,14 +297,14 @@ export default function ResultsPage() {
                   cx="40"
                   cy="40"
                   r="34"
-                  className="score-ring-track"
+                  className={styles["score-ring-track"]}
                   fill="none"
                 />
                 <circle
                   cx="40"
                   cy="40"
                   r="34"
-                  className="score-ring-fill"
+                  className={styles["score-ring-fill"]}
                   fill="none"
                   stroke="url(#scoreGrad)"
                   strokeDasharray={RING_C}
@@ -311,32 +312,32 @@ export default function ResultsPage() {
                   transform="rotate(-90 40 40)"
                 />
               </svg>
-              <div className="score-ring-center">
-                <span className="score-ring-value">{score}</span>
-                <span className="score-ring-unit">/100</span>
+              <div className={styles["score-ring-center"]}>
+                <span className={styles["score-ring-value"]}>{score}</span>
+                <span className={styles["score-ring-unit"]}>/100</span>
               </div>
-              <span className="score-ring-caption">AI Score</span>
+              <span className={styles["score-ring-caption"]}>AI Score</span>
             </div>
-            <div className="results-summary-text">
-              <span className="results-summary-label">Your skin type</span>
-              <h1 className="results-title">{features.skin_type}</h1>
+            <div className={styles["results-summary-text"]}>
+              <span className={styles["results-summary-label"]}>Your skin type</span>
+              <h1 className={styles["results-title"]}>{features.skin_type}</h1>
             </div>
           </div>
-          <div className="results-meta-row">
+          <div className={styles["results-meta-row"]}>
             <div
-              className="results-meta"
+              className={styles["results-meta"]}
               data-tier={tier}
               title={CONFIDENCE_HINT}
               aria-label={`Confidence ${tier}, ${source}`}
             >
-              <span className="results-meta-dot" aria-hidden="true" />
+              <span className={styles["results-meta-dot"]} aria-hidden="true" />
               <span>Confidence: {tier}</span>
-              <span className="results-meta-sep" aria-hidden="true">·</span>
-              <span className="results-meta-source">{source}</span>
-              <span className="results-info" ref={confidenceInfoRef}>
+              <span className={styles["results-meta-sep"]} aria-hidden="true">·</span>
+              <span className={styles["results-meta-source"]}>{source}</span>
+              <span className={styles["results-info"]} ref={confidenceInfoRef}>
                 <button
                   type="button"
-                  className="results-info-btn"
+                  className={styles["results-info-btn"]}
                   aria-label="What does this mean?"
                   aria-expanded={confidenceInfoOpen}
                   title="Click to learn more"
@@ -345,19 +346,19 @@ export default function ResultsPage() {
                   ?
                 </button>
                 {confidenceInfoOpen && (
-                  <span className="results-info-pop" role="dialog" aria-label="What this means">
+                  <span className={styles["results-info-pop"]} role="dialog" aria-label="What this means">
                     {confidenceInfo}
                   </span>
                 )}
               </span>
             </div>
             {scanDate && (
-              <span className="results-meta-date">Scanned {scanDate}</span>
+              <span className={styles["results-meta-date"]}>Scanned {scanDate}</span>
             )}
           </div>
         </section>
 
-        <div className="seg-tabs" role="tablist" aria-label="Report sections">
+        <div className={styles["seg-tabs"]} role="tablist" aria-label="Report sections">
           {(
             [
               { id: "profile" as const, label: "Profile" },
@@ -371,7 +372,7 @@ export default function ResultsPage() {
               key={t.id}
               role="tab"
               type="button"
-              className="seg-tab"
+              className={styles["seg-tab"]}
               id={tabId(t.id)}
               aria-selected={tab === t.id}
               aria-controls={panelId(t.id)}
@@ -385,31 +386,31 @@ export default function ResultsPage() {
         </div>
 
         <section
-          className="tab-panel"
+          className={styles["tab-panel"]}
           role="tabpanel"
           id={panelId("targets")}
           aria-labelledby={tabId("targets")}
           hidden={tab !== "targets"}
         >
-          <p className="targets-tag">
+          <p className={styles["targets-tag"]}>
             Tap a target to see picks that match it.
           </p>
-          <ul className="targets-list" data-testid="focus-areas">
+          <ul className={styles["targets-list"]} data-testid="focus-areas">
             {focusAreas.map((area, idx) => (
               <li key={area}>
                 <button
                   type="button"
-                  className="targets-item"
+                  className={styles["targets-item"]}
                   onClick={() => {
                     setActiveTarget(area);
                     setTab("picks");
                   }}
                 >
-                  <span className="targets-index" aria-hidden="true">
+                  <span className={styles["targets-index"]} aria-hidden="true">
                     {String(idx + 1).padStart(2, "0")}
                   </span>
-                  <span className="targets-label">{area}</span>
-                  <span className="targets-arrow" aria-hidden="true">→</span>
+                  <span className={styles["targets-label"]}>{area}</span>
+                  <span className={styles["targets-arrow"]} aria-hidden="true">→</span>
                 </button>
               </li>
             ))}
@@ -417,36 +418,36 @@ export default function ResultsPage() {
         </section>
 
         <section
-          className="tab-panel"
+          className={styles["tab-panel"]}
           role="tabpanel"
           id={panelId("picks")}
           aria-labelledby={tabId("picks")}
           aria-live="polite"
           hidden={tab !== "picks"}
         >
-          <div className="recos-head">
-            <h2 className="recos-title">Recommended</h2>
+          <div className={styles["recos-head"]}>
+            <h2 className={styles["recos-title"]}>Recommended</h2>
             {activeTarget && (
               <button
                 type="button"
-                className="recos-link"
+                className={styles["recos-link"]}
                 onClick={() => setActiveTarget(null)}
               >
                 Clear filter
               </button>
             )}
           </div>
-          <p className="recos-tag">
+          <p className={styles["recos-tag"]}>
             {activeTarget ? `Picks for ${activeTarget.toLowerCase()}.` : recoTagline}
           </p>
           {activeTarget && (
-            <div className="picks-filter">
-              <span className="picks-filter-label">Filter:</span>
-              <span className="picks-filter-chip">
+            <div className={styles["picks-filter"]}>
+              <span className={styles["picks-filter-label"]}>Filter:</span>
+              <span className={styles["picks-filter-chip"]}>
                 {activeTarget}
                 <button
                   type="button"
-                  className="picks-filter-clear"
+                  className={styles["picks-filter-clear"]}
                   onClick={() => setActiveTarget(null)}
                   aria-label="Clear filter"
                 >
@@ -463,7 +464,7 @@ export default function ResultsPage() {
             </p>
           ) : (
             <div
-              className="reco-row"
+              className={styles["reco-row"]}
               ref={recoRowRef}
               onPointerDown={onRowPointerDown}
               onPointerMove={onRowPointerMove}
@@ -473,7 +474,7 @@ export default function ResultsPage() {
               {filteredRecos.map((item, idx) => (
                 <button
                   type="button"
-                  className="reco-card"
+                  className={styles["reco-card"]}
                   key={item.product.id}
                   // Tap → scroll the row directly (not scrollIntoView, which leaks to body scroll).
                   // Suppress when the click was the tail of a drag gesture (>5px).
@@ -491,20 +492,20 @@ export default function ResultsPage() {
                   aria-label={`${item.product.brand} ${item.product.name}, $${item.product.price.toFixed(2)}`}
                 >
                   <div
-                    className="reco-image"
+                    className={styles["reco-image"]}
                     style={{ background: PRODUCT_BG[idx % PRODUCT_BG.length] }}
                   >
                     <span>{PRODUCT_EMOJI[item.product.category] ?? "🧴"}</span>
                   </div>
-                  <div className="reco-meta">
-                    <span className="reco-brand">{item.product.brand}</span>
-                    <h3 className="reco-name">{item.product.name}</h3>
+                  <div className={styles["reco-meta"]}>
+                    <span className={styles["reco-brand"]}>{item.product.brand}</span>
+                    <h3 className={styles["reco-name"]}>{item.product.name}</h3>
                     {item.reasons[0] && (
-                      <span className="reco-why" title={item.reasons[0]}>
+                      <span className={styles["reco-why"]} title={item.reasons[0]}>
                         Why: {item.reasons[0]}
                       </span>
                     )}
-                    <span className="reco-price">${item.product.price.toFixed(2)}</span>
+                    <span className={styles["reco-price"]}>${item.product.price.toFixed(2)}</span>
                   </div>
                 </button>
               ))}
@@ -514,31 +515,31 @@ export default function ResultsPage() {
 
         {hasPlan && plan && (
           <section
-            className="tab-panel"
+            className={styles["tab-panel"]}
             role="tabpanel"
             id={panelId("routine")}
             aria-labelledby={tabId("routine")}
             hidden={tab !== "routine"}
           >
-            <div className="routine-header">
-              <h3 className="routine-period-title">
+            <div className={styles["routine-header"]}>
+              <h3 className={styles["routine-period-title"]}>
                 {routinePeriod === "morning" ? "Morning" : "Evening"}
               </h3>
               <div
-                className="period-switch period-switch--icon-only"
+                className={`${styles["period-switch"]} ${styles["period-switch--icon-only"]}`}
                 role="tablist"
                 aria-label="Time of day"
               >
                 <button
                   type="button"
                   role="tab"
-                  className="period-switch-btn"
+                  className={styles["period-switch-btn"]}
                   aria-selected={routinePeriod === "morning"}
                   aria-label="Morning routine"
                   data-active={routinePeriod === "morning"}
                   onClick={() => setRoutinePeriod("morning")}
                 >
-                  <span className="period-switch-icon" aria-hidden="true">
+                  <span className={styles["period-switch-icon"]} aria-hidden="true">
                     <svg
                       width="16"
                       height="16"
@@ -556,13 +557,13 @@ export default function ResultsPage() {
                 <button
                   type="button"
                   role="tab"
-                  className="period-switch-btn"
+                  className={styles["period-switch-btn"]}
                   aria-selected={routinePeriod === "evening"}
                   aria-label="Evening routine"
                   data-active={routinePeriod === "evening"}
                   onClick={() => setRoutinePeriod("evening")}
                 >
-                  <span className="period-switch-icon" aria-hidden="true">
+                  <span className={styles["period-switch-icon"]} aria-hidden="true">
                     <svg
                       width="16"
                       height="16"
@@ -578,12 +579,12 @@ export default function ResultsPage() {
                 </button>
               </div>
             </div>
-            <ol className="routine-steps">
+            <ol className={styles["routine-steps"]}>
               {routineSteps.slice(0, 5).map((step) => (
                 <li key={`${routinePeriod}-${step.order}`}>
-                  <div className="routine-step-body">
-                    <span className="routine-step-name">{step.product_name}</span>
-                    <span className="routine-step-hint">{step.instruction}</span>
+                  <div className={styles["routine-step-body"]}>
+                    <span className={styles["routine-step-name"]}>{step.product_name}</span>
+                    <span className={styles["routine-step-hint"]}>{step.instruction}</span>
                   </div>
                 </li>
               ))}
@@ -592,27 +593,27 @@ export default function ResultsPage() {
         )}
 
         <section
-          className="tab-panel"
+          className={styles["tab-panel"]}
           role="tabpanel"
           id={panelId("profile")}
           aria-labelledby={tabId("profile")}
           hidden={tab !== "profile"}
         >
-          <div className="profile-grid" data-testid="profile-grid">
+          <div className={styles["profile-grid"]} data-testid="profile-grid">
             {visibleProfile.map((row) => (
               <div
                 key={row.id}
-                className="profile-row"
+                className={styles["profile-row"]}
                 data-tone={row.tone}
                 data-metric={row.id}
               >
-                <div className="row-head">
-                  <span className="row-label" title={row.label}>{row.label}</span>
-                  <span className="row-value">{row.valueLabel}</span>
+                <div className={styles["row-head"]}>
+                  <span className={styles["row-label"]} title={row.label}>{row.label}</span>
+                  <span className={styles["row-value"]}>{row.valueLabel}</span>
                 </div>
-                <div className="meter-track">
+                <div className={styles["meter-track"]}>
                   <div
-                    className="meter-fill"
+                    className={styles["meter-fill"]}
                     style={{ width: `${metersIn ? row.percent : 0}%` }}
                   />
                 </div>
@@ -622,7 +623,7 @@ export default function ResultsPage() {
           {hasHiddenMetrics && (
             <button
               type="button"
-              className="show-more-btn"
+              className={styles["show-more-btn"]}
               onClick={() => setShowAllMetrics((v) => !v)}
               aria-expanded={showAllMetrics}
             >
@@ -634,16 +635,16 @@ export default function ResultsPage() {
         </section>
 
         <section
-          className="tab-panel"
+          className={styles["tab-panel"]}
           role="tabpanel"
           id={panelId("insights")}
           aria-labelledby={tabId("insights")}
           hidden={tab !== "insights"}
         >
-          <ul className="insights-list">
+          <ul className={styles["insights-list"]}>
             {insights.map((line, idx) => (
-              <li key={idx} className="insights-item">
-                <span className="insights-bullet" aria-hidden="true">
+              <li key={idx} className={styles["insights-item"]}>
+                <span className={styles["insights-bullet"]} aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
                     <path d="M7 0c.3 2.4 1.3 4 3.6 4.6.2.06.2.34 0 .4C8.3 5.7 7.3 7.2 7 9.6 6.7 7.2 5.7 5.7 3.4 5c-.2-.06-.2-.34 0-.4C5.7 4 6.7 2.4 7 0Z" />
                     <path d="M11.6 8.4c.15 1.2.65 2 1.8 2.3.1.03.1.17 0 .2-1.15.3-1.65 1.1-1.8 2.3-.15-1.2-.65-2-1.8-2.3-.1-.03-.1-.17 0-.2 1.15-.3 1.65-1.1 1.8-2.3Z" />
@@ -655,13 +656,13 @@ export default function ResultsPage() {
           </ul>
         </section>
 
-        <div className="results-bottom-spacer" aria-hidden="true" />
+        <div className={styles["results-bottom-spacer"]} aria-hidden="true" />
       </main>
 
-      <div className="results-sticky">
+      <div className={styles["results-sticky"]}>
         {showSavedToast && (
-          <div className="results-saved" aria-hidden="true">
-            <span className="results-saved-check">
+          <div className={styles["results-saved"]} aria-hidden="true">
+            <span className={styles["results-saved-check"]}>
               <svg
                 width="10"
                 height="10"
