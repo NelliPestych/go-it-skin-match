@@ -1,0 +1,25 @@
+/* Round icon button (header back / close / menu). */
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text);
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.icon-btn-light {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: transparent;
+  backdrop-filter: blur(8px);
+}

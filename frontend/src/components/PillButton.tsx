@@ -1,5 +1,7 @@
 import { ButtonHTMLAttributes, ReactNode } from "react";
 
+import styles from "./PillButton.module.css";
+
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary";
   trailingIcon?: ReactNode;
@@ -14,10 +16,13 @@ export default function PillButton({
   className,
   ...rest
 }: Props) {
-  const cls =
-    "pill-btn" +
-    (variant === "secondary" ? " pill-btn-secondary" : "") +
-    (className ? ` ${className}` : "");
+  const cls = [
+    styles["pill-btn"],
+    variant === "secondary" && styles["pill-btn-secondary"],
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <button className={cls} {...rest}>
       {leadingIcon}
