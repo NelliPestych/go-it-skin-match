@@ -32,6 +32,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import "../components/camera/camera.css";
 import CameraStatusPanel from "../components/camera/CameraStatusPanel";
 import CaptureProgress from "../components/camera/CaptureProgress";
 import CountdownOverlay from "../components/camera/CountdownOverlay";
