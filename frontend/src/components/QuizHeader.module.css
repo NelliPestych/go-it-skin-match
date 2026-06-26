@@ -1,0 +1,41 @@
+/* Progress bar (multi-step quiz) — lives with QuizHeader. */
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--side-margin);
+  margin-bottom: 8px;
+}
+
+.progress-step {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+
+.progress-step .of {
+  color: var(--text-40);
+}
+
+.progress-hint {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-50);
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--surface);
+  border: 1px solid var(--text);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  margin: 0 var(--side-margin);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--text);
+  border-radius: var(--r-pill);
+  transition: width 0.3s ease;
+}

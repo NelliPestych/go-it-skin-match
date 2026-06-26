@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 
 import IconButton from "./IconButton";
+import styles from "./QuizHeader.module.css";
 
 interface Props {
   step: number;
@@ -32,14 +33,14 @@ export default function QuizHeader({ step, totalSteps, hint, onClose, onBack }: 
           </svg>
         </IconButton>
       </div>
-      <div className="progress-row">
-        <span className="progress-step">
-          {step} <span className="of">/ {totalSteps}</span>
+      <div className={styles["progress-row"]}>
+        <span className={styles["progress-step"]}>
+          {step} <span className={styles.of}>/ {totalSteps}</span>
         </span>
-        {hint && <span className="progress-hint">{hint}</span>}
+        {hint && <span className={styles["progress-hint"]}>{hint}</span>}
       </div>
-      <div className="progress-bar">
-        <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
+      <div className={styles["progress-bar"]}>
+        <div className={styles["progress-bar-fill"]} style={{ width: `${percent}%` }} />
       </div>
     </>
   );
